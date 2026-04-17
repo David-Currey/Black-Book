@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class UserList extends Model
 {
@@ -19,5 +20,13 @@ class UserList extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get all people that belong to this list
+     */
+    public function people(): HasMany
+    {
+        return $this->hasMany(Person::class);
     }
 }
