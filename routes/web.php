@@ -9,6 +9,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('/lists', 'lists.index')->name('lists.index');
     Route::livewire('/lists/{list}', 'lists.show')->name('lists.show');
+    Route::livewire('/people/{person}', 'people.show')->name('people.show');
 });
 
 require __DIR__ . '/settings.php';

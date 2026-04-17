@@ -14,14 +14,18 @@ new class extends Component
      */
     public function createList(): void
     {
+        $this->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
         UserList::create([
             'user_id' => Auth::id(),
             'name' => $this->name,
             'description' => $this->description,
         ]);
 
-        $this->name = '';
-        $this->description = '';
+        $this->reset('name', 'description');
     }
 
     /**
@@ -39,19 +43,25 @@ new class extends Component
     <h1 class="text-xl font-bold mb-4">Your Lists</h1>
 
     <!-- Create List Form -->
-    <div class="mb-4">
-        <input
-            type="text"
-            wire:model="name"
-            placeholder="List name"
-            class="border p-2 mr-2"
-        >
+    <div class="mb-4 flex items-start gap-2">
+        <div>
+            <input 
+                type="text" 
+                wire:model.live="name" 
+                placeholder="List name"
+                class="border p-2"
+            >
+
+            @error('name')
+                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+            @enderror
+        </div>
 
         <input
             type="text"
-            wire:model="description"
+            wire:model.live="description"
             placeholder="Description"
-            class="border p-2 mr-2"
+            class="border p-2"
         >
 
         <button
