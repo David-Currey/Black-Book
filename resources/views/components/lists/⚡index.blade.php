@@ -65,10 +65,15 @@ new class extends Component
     <!-- List Display -->
     <ul>
         @foreach($this->lists as $list)
-            <li class="mb-2">
-                <strong>{{ $list->name }}</strong>
-                <p>{{ $list->description }}</p>
+            <li class="mb-4">
+                <a
+                    href="{{ route('lists.show', $list) }}"
+                    class="block border p-3 rounded hover:bg-gray-800"
+                >
+                    <strong>{{ $list->name }}</strong>
+                    <p>{{ $list->description }}</p>
+                </a>
             </li>
-        @endforeach
+        @endforeach 
     </ul>
 </div>
