@@ -52,7 +52,7 @@
 }
 
 [data-flux-label] {
-    @apply  !mb-0 !leading-tight;
+    @apply !mb-0 !leading-tight;
 }
 
 input:focus[data-flux-control],
@@ -64,3 +64,325 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+/* =========================
+   App theme styles
+   ========================= */
+
+:root {
+    --app-bg: #1e1e1e;
+    --app-surface: #252526;
+    --app-surface-2: #2d2d30;
+    --app-border: #3c3c3c;
+    --app-text: #d4d4d4;
+    --app-text-muted: #9da1a6;
+    --app-accent: #0e639c;
+    --app-accent-hover: #1177bb;
+    --app-danger: #c74e39;
+    --app-danger-hover: #d35f4b;
+    --app-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+/**
+ * Global page styling
+ */
+body {
+    background-color: var(--app-bg);
+    color: var(--app-text);
+}
+
+/**
+ * Main page container
+ */
+.app-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/**
+ * Page heading block
+ */
+.page-header {
+    margin-bottom: 1.75rem;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--app-text);
+}
+
+.page-subtitle {
+    margin-top: 0.35rem;
+    color: var(--app-text-muted);
+    font-size: 0.95rem;
+}
+
+/**
+ * Reusable panel/card
+ */
+.panel {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    box-shadow: var(--app-shadow);
+}
+
+.panel-inner {
+    padding: 1.5rem;
+}
+
+.panel-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--app-text);
+    margin-bottom: 1rem;
+}
+
+/**
+ * Reusable form controls
+ */
+.app-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.9rem;
+    color: var(--app-text-muted);
+}
+
+.app-input,
+.app-textarea {
+    width: 100%;
+    border: 1px solid var(--app-border);
+    background: var(--app-surface-2);
+    color: var(--app-text);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-input::placeholder,
+.app-textarea::placeholder {
+    color: var(--app-text-muted);
+}
+
+.app-input:focus,
+.app-textarea:focus {
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 3px rgba(14, 99, 156, 0.2);
+}
+
+/**
+ * Reusable buttons
+ */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-primary {
+    background: var(--app-accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--app-accent-hover);
+}
+
+.btn-secondary {
+    background: var(--app-surface-2);
+    color: var(--app-text);
+    border: 1px solid var(--app-border);
+}
+
+.btn-secondary:hover {
+    background: #343438;
+}
+
+.btn-danger {
+    background: var(--app-danger);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: var(--app-danger-hover);
+}
+
+/**
+ * Reusable list card link
+ */
+.card-link {
+    display: block;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.card-link:hover {
+    background: #2a2a2d;
+    border-color: #4a4a4a;
+    transform: translateY(-1px);
+}
+
+.card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--app-text);
+}
+
+.card-text {
+    margin-top: 0.45rem;
+    color: var(--app-text-muted);
+    font-size: 0.95rem;
+}
+
+.card-meta {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--app-border);
+    background: var(--app-surface-2);
+    color: var(--app-text-muted);
+    border-radius: 999px;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.85rem;
+}
+
+/**
+ * Helper text
+ */
+.text-muted {
+    color: var(--app-text-muted);
+}
+
+.validation-error {
+    margin-top: 0.45rem;
+    color: #f48771;
+    font-size: 0.85rem;
+}
+
+/**
+ * Slide-over overlay
+ */
+.slideover-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 40;
+}
+
+/**
+ * Slide-over panel
+ */
+.slideover {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: min(460px, 100%);
+    background: var(--app-surface);
+    border-left: 1px solid var(--app-border);
+    box-shadow: -12px 0 30px rgba(0, 0, 0, 0.35);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+}
+
+.slideover-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--app-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.slideover-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--app-text);
+}
+
+.slideover-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.icon-button {
+    border: 1px solid var(--app-border);
+    background: var(--app-surface-2);
+    color: var(--app-text);
+    border-radius: 10px;
+    padding: 0.55rem 0.8rem;
+    transition: background-color 0.15s ease;
+}
+
+.icon-button:hover {
+    background: #343438;
+}
+
+/**
+ * Modal overlay
+ */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 40;
+}
+
+/**
+ * Modal wrapper
+ */
+.modal-wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+/**
+ * Modal panel
+ */
+.modal-panel {
+    width: 100%;
+    max-width: 640px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--app-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.modal-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--app-text);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}

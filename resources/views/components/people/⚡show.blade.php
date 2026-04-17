@@ -73,92 +73,101 @@ new class extends Component
 
 ?>
 
-<div class="p-4">
+<div class="app-shell">
     <div class="mb-6">
         <a
             href="{{ route('lists.show', $this->person->list) }}"
-            class="text-sm text-blue-400 hover:underline"
+            class="text-sm text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition"
         >
-            Back to list
+            ← Back to {{ $this->person->list->name }}
         </a>
+
+        <div class="page-header mt-3 !mb-0">
+            <h1 class="page-title">{{ $this->person->name }}</h1>
+            <p class="page-subtitle">
+                View and update this person’s details.
+            </p>
+        </div>
     </div>
 
-    <div class="border rounded p-4">
-        <h1 class="text-2xl font-bold mb-4">Edit Person</h1>
-
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm mb-1">Name</label>
-                <input
-                    type="text"
-                    wire:model.live="name"
-                    class="border p-2 w-full rounded"
-                >
-
-                @error('name')
-                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div>
-                <label class="block text-sm mb-1">Game</label>
-                <input
-                    type="text"
-                    wire:model.live="game"
-                    class="border p-2 w-full rounded"
-                >
-
-                @error('game')
-                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div>
-                <label class="block text-sm mb-1">Notes</label>
-                <textarea
-                    wire:model.live="notes"
-                    class="border p-2 w-full rounded"
-                    rows="5"
-                ></textarea>
-
-                @error('notes')
-                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="flex gap-3">
-                <button
-                    wire:click="updatePerson"
-                    wire:loading.attr="disabled"
-                    class="bg-blue-600 text-white px-4 py-2 rounded"
-                >
-                    Save Changes
-                </button>
-
-                @if (!$confirmingDelete)
-                    <button
-                        wire:click="confirmDelete"
-                        class="bg-red-600 text-white px-4 py-2 rounded"
+    <div class="panel max-w-3xl">
+        <div class="panel-inner">
+            <div class="space-y-5">
+                <div>
+                    <label for="person-name" class="app-label">Name</label>
+                    <input
+                        id="person-name"
+                        type="text"
+                        wire:model.live="name"
+                        class="app-input"
                     >
-                        Delete Person
+
+                    @error('name')
+                        <p class="validation-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="person-game" class="app-label">Game</label>
+                    <input
+                        id="person-game"
+                        type="text"
+                        wire:model.live="game"
+                        class="app-input"
+                    >
+
+                    @error('game')
+                        <p class="validation-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="person-notes" class="app-label">Notes</label>
+                    <textarea
+                        id="person-notes"
+                        wire:model.live="notes"
+                        class="app-textarea"
+                        rows="6"
+                    ></textarea>
+
+                    @error('notes')
+                        <p class="validation-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="flex flex-wrap gap-3 pt-2">
+                    <button
+                        wire:click="updatePerson"
+                        wire:loading.attr="disabled"
+                        class="btn-primary"
+                    >
+                        Save Changes
                     </button>
-                @else
-                    <div class="flex gap-2">
+
+                    @if (!$confirmingDelete)
+                        <button
+                            wire:click="confirmDelete"
+                            class="btn-danger"
+                        >
+                            Delete Person
+                        </button>
+                    @else
                         <button
                             wire:click="deletePerson"
-                            class="bg-red-700 text-white px-4 py-2 rounded"
+                            wire:loading.attr="disabled"
+                            class="btn-danger"
                         >
                             Confirm Delete
                         </button>
 
                         <button
                             wire:click="$set('confirmingDelete', false)"
-                            class="bg-gray-600 text-white px-4 py-2 rounded"
+                            class="btn-secondary"
                         >
                             Cancel
                         </button>
-                    </div>
-                @endif
+                    @endif
+                </div>
             </div>
         </div>
     </div>
