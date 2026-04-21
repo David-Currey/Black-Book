@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use App\Models\Tag;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -50,5 +51,13 @@ class User extends Authenticatable
     public function lists()
     {
         return $this->hasMany(UserList::class);
+    }
+
+    /**
+     * Get all tags that belong to this user
+     */
+    public function tags()
+    {
+        return $this->hasMany(Tag::class);
     }
 }

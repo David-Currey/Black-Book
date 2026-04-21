@@ -14,6 +14,7 @@ new class extends Component
     public string $personName = '';
     public string $game = '';
     public string $notes = '';
+    public string $search = '';
 
     public bool $confirmingDelete = false;
 
@@ -125,6 +126,21 @@ new class extends Component
         $this->showAddPersonModal = false;
         $this->confirmingDelete = false;
     }
+
+    /**
+     * Get people in this list filtered by the current search term
+     */
+    public function getFilteredPeopleProperty()
+    {
+        return $this->list
+            ->people()
+            ->with('tags')
+            ->when($this->search !== '', function ($query) {
+                $query->where('name', 'like', '%' . $this->search . '%');
+            })
+            ->orderBy('name')
+            ->get();
+    }
 };
 
 ?>
@@ -169,21 +185,38 @@ new class extends Component
 
     <div class="panel">
         <div class="panel-inner">
-            <div class="flex items-center justify-between gap-4 mb-5">
-                <h2 class="panel-title !mb-0">People in This List</h2>
+            <div class="flex flex-col gap-4 mb-5 md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center gap-3">
+                    <h2 class="panel-title !mb-0">People in This List</h2>
 
-                <span class="card-meta">
-                    {{ $this->list->people->count() }} total
-                </span>
+                    <span class="card-meta">
+                        {{ $this->filteredPeople->count() }} shown
+                    </span>
+                </div>
+
+                <div class="w-full md:w-80">
+                    <label for="people-search" class="sr-only">Search people</label>
+                    <input
+                        id="people-search"
+                        type="text"
+                        wire:model.live="search"
+                        placeholder="Search by name..."
+                        class="app-input"
+                    >
+                </div>
             </div>
 
             @if ($this->list->people->isEmpty())
                 <div class="text-muted">
                     No people have been added to this list yet.
                 </div>
+            @elseif ($this->filteredPeople->isEmpty())
+                <div class="text-muted">
+                    No people matched your search.
+                </div>
             @else
                 <ul class="space-y-3">
-                    @foreach ($this->list->people as $person)
+                    @foreach ($this->filteredPeople as $person)
                         <li>
                             <a
                                 href="{{ route('people.show', $person) }}"
@@ -198,7 +231,24 @@ new class extends Component
                                         @endif
 
                                         @if ($person->notes)
-                                            <p class="card-text">{{ $person->notes }}</p>
+                                            <p class="card-text line-clamp-2">{{ $person->notes }}</p>
+                                        @endif
+
+                                        @if ($person->tags->isNotEmpty())
+                                            <div class="flex flex-wrap gap-2 mt-3">
+                                                @foreach ($person->tags as $tag)
+                                                    <span
+                                                        class="flex items-center rounded-full px-3 py-1 text-xs"
+                                                        style="
+                                                            background-color: {{ $tag->color }}20;
+                                                            border: 1px solid {{ $tag->color }};
+                                                            color: {{ $tag->color }};
+                                                        "
+                                                    >
+                                                        {{ $tag->name }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
                                         @endif
                                     </div>
 
