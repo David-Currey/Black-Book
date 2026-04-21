@@ -16,6 +16,8 @@ new class extends Component
     public string $notes = '';
     public string $search = '';
 
+    public array $selectedTags = [];
+
     public bool $confirmingDelete = false;
 
     public bool $showEditListModal = false;
@@ -46,13 +48,32 @@ new class extends Component
             'personName.required' => 'Person name is required.',
         ]);
 
-        $this->list->people()->create([
+        $person = $this->list->people()->create([
             'name' => $this->personName,
             'game' => $this->game,
             'notes' => $this->notes,
         ]);
 
+        $tagIds = [];
+
+        foreach ($this->selectedTags as $selectedTag) {
+            if (!empty($selectedTag['tag_id'])) {
+                $tagIds[] = $selectedTag['tag_id'];
+                continue;
+            }
+
+            $tag = Auth::user()->tags()->firstOrCreate(
+                ['name' => $selectedTag['name']],
+                ['color' => $selectedTag['color']]
+            );
+
+            $tagIds[] = $tag->id;
+        }
+
+        $person->tags()->sync($tagIds);
+
         $this->reset('personName', 'game', 'notes');
+        $this->selectedTags = [];
 
         $this->list->refresh();
 
@@ -115,6 +136,9 @@ new class extends Component
     {
         $this->showEditListModal = false;
         $this->showAddPersonModal = true;
+
+        $this->reset('personName', 'game', 'notes');
+        $this->selectedTags = [];
     }
 
     /**
@@ -171,7 +195,7 @@ new class extends Component
                 wire:click="openAddPersonModal"
                 class="btn-primary"
             >
-                Add Person
+                Add Entry
             </button>
 
             <button
@@ -187,7 +211,7 @@ new class extends Component
         <div class="panel-inner">
             <div class="flex flex-col gap-4 mb-5 md:flex-row md:items-center md:justify-between">
                 <div class="flex items-center gap-3">
-                    <h2 class="panel-title !mb-0">People in This List</h2>
+                    <h2 class="panel-title !mb-0">Entries in This List</h2>
 
                     <span class="card-meta">
                         {{ $this->filteredPeople->count() }} shown
@@ -195,7 +219,7 @@ new class extends Component
                 </div>
 
                 <div class="w-full md:w-80">
-                    <label for="people-search" class="sr-only">Search people</label>
+                    <label for="people-search" class="sr-only">Search Entries</label>
                     <input
                         id="people-search"
                         type="text"
@@ -208,11 +232,11 @@ new class extends Component
 
             @if ($this->list->people->isEmpty())
                 <div class="text-muted">
-                    No people have been added to this list yet.
+                    No entries have been added to this list yet.
                 </div>
             @elseif ($this->filteredPeople->isEmpty())
                 <div class="text-muted">
-                    No people matched your search.
+                    No entries matched your search.
                 </div>
             @else
                 <ul class="space-y-3">
@@ -264,6 +288,8 @@ new class extends Component
         </div>
     </div>
 
+
+    <!-- Edit list modal -->
     @if ($showEditListModal || $showAddPersonModal)
         <div
             class="modal-backdrop"
@@ -351,9 +377,11 @@ new class extends Component
                     </div>
                 @endif
 
+
+                <!-- Add person modal -->
                 @if ($showAddPersonModal)
                     <div class="modal-header">
-                        <h2 class="modal-title">Add Person</h2>
+                        <h2 class="modal-title">Add Entry</h2>
 
                         <button
                             wire:click="closeModals"
@@ -395,6 +423,9 @@ new class extends Component
                                 @enderror
                             </div>
 
+                            <!-- Tag selector for filtering people by tags -->
+                            <livewire:tags.selector wire:model="selectedTags" />
+
                             <div>
                                 <label for="person-notes" class="app-label">Notes</label>
                                 <textarea
@@ -415,7 +446,7 @@ new class extends Component
                                 wire:loading.attr="disabled"
                                 class="btn-primary w-full"
                             >
-                                Add Person
+                                Add Entry
                             </button>
                         </div>
                     </div>

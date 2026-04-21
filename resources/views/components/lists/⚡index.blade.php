@@ -3,6 +3,7 @@
 use App\Models\UserList;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use Illuminate\Support\Str;
 
 new class extends Component
 {
@@ -108,7 +109,7 @@ new class extends Component
                                 </div>
 
                                 <span class="card-meta">
-                                    {{ $list->people->count() }} people
+                                    {{ $list->people->count() }} {{ Str::plural('entry', $list->people->count()) }}
                                 </span>
                             </div>
                         </a>
