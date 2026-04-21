@@ -152,15 +152,24 @@ new class extends Component
     }
 
     /**
-     * Get people in this list filtered by the current search term
+     * Get entries in this list filtered by the current search term
      */
     public function getFilteredPeopleProperty()
     {
+        $search = trim($this->search);
+
         return $this->list
             ->people()
             ->with('tags')
-            ->when($this->search !== '', function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%');
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($subQuery) use ($search) {
+                    $subQuery
+                        ->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('game', 'like', '%' . $search . '%')
+                        ->orWhereHas('tags', function ($tagQuery) use ($search) {
+                            $tagQuery->where('name', 'like', '%' . $search . '%');
+                        });
+                });
             })
             ->orderBy('name')
             ->get();
@@ -224,7 +233,7 @@ new class extends Component
                         id="people-search"
                         type="text"
                         wire:model.live="search"
-                        placeholder="Search by name..."
+                        placeholder="Search by name, category, or tags..."
                         class="app-input"
                     >
                 </div>
@@ -252,10 +261,6 @@ new class extends Component
 
                                         @if ($person->game)
                                             <p class="card-text">{{ $person->game }}</p>
-                                        @endif
-
-                                        @if ($person->notes)
-                                            <p class="card-text line-clamp-2">{{ $person->notes }}</p>
                                         @endif
 
                                         @if ($person->tags->isNotEmpty())
@@ -378,7 +383,7 @@ new class extends Component
                 @endif
 
 
-                <!-- Add person modal -->
+                <!-- Add entry modal -->
                 @if ($showAddPersonModal)
                     <div class="modal-header">
                         <h2 class="modal-title">Add Entry</h2>
@@ -409,7 +414,7 @@ new class extends Component
                             </div>
 
                             <div>
-                                <label for="person-game" class="app-label">Game</label>
+                                <label for="person-game" class="app-label">Category</label>
                                 <input
                                     id="person-game"
                                     type="text"
@@ -428,11 +433,16 @@ new class extends Component
 
                             <div>
                                 <label for="person-notes" class="app-label">Notes</label>
+
+                                <p class="text-xs text-[var(--app-text-muted)] mb-2">
+                                    Supports markdown: - bullets, **bold**, ## headings
+                                </p>
+
                                 <textarea
                                     id="person-notes"
                                     wire:model.live="notes"
-                                    placeholder="Add anything helpful to remember about this person..."
-                                    class="app-textarea"
+                                    placeholder="Add notes... (use - for lists, **bold**, ## headings)"
+                                    class="app-textarea font-mono"
                                     rows="5"
                                 ></textarea>
 

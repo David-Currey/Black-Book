@@ -16,6 +16,7 @@ new class extends Component
 
     public array $selectedTags = [];
 
+    public bool $showEditModal = false;
     public bool $confirmingDelete = false;
 
     /**
@@ -42,9 +43,9 @@ new class extends Component
     }
 
     /**
-     * Update this person's details and return to the list
+     * Update this entry's details
      */
-    public function updatePerson()
+    public function updatePerson(): void
     {
         $this->validate([
             'name' => 'required|string|max:255',
@@ -76,10 +77,10 @@ new class extends Component
 
         $this->person->tags()->sync($tagIds);
 
-        return $this->redirect(
-            route('lists.show', $this->person->list),
-            navigate: true
-        );
+        $this->person->refresh();
+        $this->person->load('tags');
+
+        $this->closeEditModal();
     }
 
     /**
@@ -205,12 +206,34 @@ new class extends Component
     {
         return $this->person->tags->count() >= 5;
     }
+
+    /**
+     * Open the edit entry modal
+     */
+    public function openEditModal(): void
+    {
+        $this->showEditModal = true;
+    }
+
+    /**
+     * Close the edit entry modal
+     */
+    public function closeEditModal(): void
+    {
+        $this->showEditModal = false;
+        $this->confirmingDelete = false;
+    }
 };
 
 ?>
 
+@php
+    $converter = new \League\CommonMark\CommonMarkConverter();
+@endphp
+
 <div class="app-shell">
-    <div class="mb-6">
+<div class="max-w-4xl">
+    <div class="mb-4">
         <a
             href="{{ route('lists.show', $this->person->list) }}"
             class="text-sm text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition"
@@ -218,96 +241,181 @@ new class extends Component
             ← Back to {{ $this->person->list->name }}
         </a>
 
-        <div class="page-header mt-3 !mb-0">
-            <h1 class="page-title">{{ $this->person->name }}</h1>
-            <p class="page-subtitle">
-                View and update this entry's details.
-            </p>
+        <div class="flex items-start justify-between gap-4 mt-3">
+            <div class="page-header !mb-0">
+                <h1 class="page-title">{{ $this->person->name }}</h1>
+                <p class="page-subtitle">
+                    View this entry’s details.
+                </p>
+            </div>
+
+            <button
+                wire:click="openEditModal"
+                class="btn-primary"
+            >
+                Edit Entry
+            </button>
         </div>
     </div>
 
-    <div class="panel max-w-3xl">
-        <div class="panel-inner">
-            <div class="space-y-5">
+    <div class="panel">
+        <div class="panel-inner space-y-6">
+            <div>
+                <p class="app-label">Name</p>
+                <p>{{ $this->person->name }}</p>
+            </div>
+
+            @if ($this->person->game)
                 <div>
-                    <label for="person-name" class="app-label">Name</label>
-                    <input
-                        id="person-name"
-                        type="text"
-                        wire:model.live="name"
-                        class="app-input"
-                    >
-
-                    @error('name')
-                        <p class="validation-error">{{ $message }}</p>
-                    @enderror
+                    <p class="app-label">Category</p>
+                    <p>{{ $this->person->game }}</p>
                 </div>
+            @endif
 
-                <div>
-                    <label for="person-game" class="app-label">Category</label>
-                    <input
-                        id="person-game"
-                        type="text"
-                        wire:model.live="game"
-                        class="app-input"
-                    >
+            <div>
+                <p class="app-label">Tags</p>
 
-                    @error('game')
-                        <p class="validation-error">{{ $message }}</p>
-                    @enderror
-                </div>
+                @if ($this->person->tags->isEmpty())
+                    <p class="text-muted">No tags added yet.</p>
+                @else
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        @foreach ($this->person->tags as $tag)
+                            <span
+                                class="flex items-center gap-2 rounded-full px-3 py-1 text-sm"
+                                style="
+                                    background-color: {{ $tag->color }}20;
+                                    border: 1px solid {{ $tag->color }};
+                                    color: {{ $tag->color }};
+                                "
+                            >
+                                {{ $tag->name }}
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
 
-                <!-- Tag selector for attaching tags to this person -->
-                <livewire:tags.selector wire:model="selectedTags" />
+            <div>
+                <p class="app-label">Notes</p>
 
-                <div>
-                    <label for="person-notes" class="app-label">Notes</label>
-                    <textarea
-                        id="person-notes"
-                        wire:model.live="notes"
-                        class="app-textarea"
-                        rows="6"
-                    ></textarea>
-
-                    @error('notes')
-                        <p class="validation-error">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="flex flex-wrap gap-3 pt-2">
-                    <button
-                        wire:click="updatePerson"
-                        wire:loading.attr="disabled"
-                        class="btn-primary"
-                    >
-                        Save Changes
-                    </button>
-
-                    @if (!$confirmingDelete)
-                        <button
-                            wire:click="confirmDelete"
-                            class="btn-danger"
-                        >
-                            Delete Person
-                        </button>
-                    @else
-                        <button
-                            wire:click="deletePerson"
-                            wire:loading.attr="disabled"
-                            class="btn-danger"
-                        >
-                            Confirm Delete
-                        </button>
-
-                        <button
-                            wire:click="$set('confirmingDelete', false)"
-                            class="btn-secondary"
-                        >
-                            Cancel
-                        </button>
-                    @endif
-                </div>
+                @if ($this->person->notes)
+                    <div class="prose prose-invert max-w-none">
+                        {!! $converter->convert($this->person->notes) !!}
+                    </div>
+                @else
+                    <p class="text-muted">No notes added yet.</p>
+                @endif
             </div>
         </div>
     </div>
+
+    @if ($showEditModal)
+        <div
+            class="modal-backdrop"
+            wire:click="closeEditModal"
+        ></div>
+
+        <div class="modal-wrap">
+            <div class="modal-panel">
+                <div class="modal-header">
+                    <h2 class="modal-title">Edit Entry</h2>
+
+                    <button
+                        wire:click="closeEditModal"
+                        class="icon-button"
+                    >
+                        Close
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="space-y-5">
+                        <div>
+                            <label for="person-name" class="app-label">Name</label>
+                            <input
+                                id="person-name"
+                                type="text"
+                                wire:model.live="name"
+                                class="app-input"
+                            >
+
+                            @error('name')
+                                <p class="validation-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="person-game" class="app-label">Category</label>
+                            <input
+                                id="person-game"
+                                type="text"
+                                wire:model.live="game"
+                                class="app-input"
+                            >
+
+                            @error('game')
+                                <p class="validation-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <livewire:tags.selector wire:model="selectedTags" />
+
+                        <div>
+                            <label for="person-notes" class="app-label">Notes</label>
+
+                            <p class="text-xs text-[var(--app-text-muted)] mb-2">
+                                Supports markdown: - bullets, **bold**, ## headings
+                            </p>
+
+                            <textarea
+                                id="person-notes"
+                                wire:model.live="notes"
+                                class="app-textarea font-mono"
+                                rows="6"
+                                placeholder="Add notes... (use - for lists, **bold**, ## headings)"
+                            ></textarea>
+
+                            @error('notes')
+                                <p class="validation-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="flex flex-wrap gap-3 pt-2">
+                            <button
+                                wire:click="updatePerson"
+                                wire:loading.attr="disabled"
+                                class="btn-primary"
+                            >
+                                Save Changes
+                            </button>
+
+                            @if (!$confirmingDelete)
+                                <button
+                                    wire:click="confirmDelete"
+                                    class="btn-danger"
+                                >
+                                    Delete Entry
+                                </button>
+                            @else
+                                <button
+                                    wire:click="deletePerson"
+                                    wire:loading.attr="disabled"
+                                    class="btn-danger"
+                                >
+                                    Confirm Delete
+                                </button>
+
+                                <button
+                                    wire:click="$set('confirmingDelete', false)"
+                                    class="btn-secondary"
+                                >
+                                    Cancel
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

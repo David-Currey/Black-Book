@@ -97,7 +97,7 @@ new class extends Component
                             href="{{ route('lists.show', $list) }}"
                             class="card-link"
                         >
-                            <div class="flex items-start justify-between gap-4">
+                            <div class="flex items-center justify-between gap-4 mt-3">
                                 <div class="min-w-0">
                                     <h3 class="card-title">{{ $list->name }}</h3>
 
