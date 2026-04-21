@@ -299,8 +299,10 @@ new class extends Component
                 <p class="app-label">Notes</p>
 
                 @if ($this->person->notes)
-                    <div class="prose prose-invert max-w-none">
-                        {!! $converter->convert($this->person->notes) !!}
+                    <div class="mt-2">
+                        <div class="prose prose-invert max-w-none text-sm">
+                            {!! $converter->convert($this->person->notes) !!}
+                        </div>
                     </div>
                 @else
                     <p class="text-muted">No notes added yet.</p>
