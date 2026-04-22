@@ -374,7 +374,7 @@ new class extends Component
                                 wire:model.live="notes"
                                 class="app-textarea font-mono"
                                 rows="6"
-                                placeholder="Add notes... (use - for lists, **bold**, ## headings)"
+                                placeholder="Add notes..."
                             ></textarea>
 
                             @error('notes')

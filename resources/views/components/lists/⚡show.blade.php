@@ -22,6 +22,7 @@ new class extends Component
 
     public bool $showEditListModal = false;
     public bool $showAddPersonModal = false;
+    public bool $showExportModal = false;
 
     /**
      * Load the list and initialize form fields
@@ -174,6 +175,22 @@ new class extends Component
             ->orderBy('name')
             ->get();
     }
+
+    /**
+     * Open export confirmation modal
+     */
+    public function openExportModal(): void
+    {
+        $this->showExportModal = true;
+    }
+
+    /**
+     * Close export confirmation modal
+     */
+    public function closeExportModal(): void
+    {
+        $this->showExportModal = false;
+    }
 };
 
 ?>
@@ -212,6 +229,13 @@ new class extends Component
                 class="btn-secondary"
             >
                 Edit List
+            </button>
+
+            <button
+                wire:click="openExportModal"
+                class="btn-secondary"
+            >
+                Export JSON
             </button>
         </div>
     </div>
@@ -293,16 +317,19 @@ new class extends Component
         </div>
     </div>
 
-
-    <!-- Edit list modal -->
-    @if ($showEditListModal || $showAddPersonModal)
+    <!-- Modals -->
+    @if ($showEditListModal || $showAddPersonModal || $showExportModal)
         <div
             class="modal-backdrop"
-            wire:click="closeModals"
+            wire:click="
+                {{ $showExportModal ? 'closeExportModal' : 'closeModals' }}
+            "
         ></div>
 
         <div class="modal-wrap">
             <div class="modal-panel">
+
+                {{-- EDIT LIST --}}
                 @if ($showEditListModal)
                     <div class="modal-header">
                         <h2 class="modal-title">Edit List</h2>
@@ -382,8 +409,7 @@ new class extends Component
                     </div>
                 @endif
 
-
-                <!-- Add entry modal -->
+                {{-- ADD ENTRY --}}
                 @if ($showAddPersonModal)
                     <div class="modal-header">
                         <h2 class="modal-title">Add Entry</h2>
@@ -428,7 +454,6 @@ new class extends Component
                                 @enderror
                             </div>
 
-                            <!-- Tag selector for filtering people by tags -->
                             <livewire:tags.selector wire:model="selectedTags" />
 
                             <div>
@@ -441,7 +466,7 @@ new class extends Component
                                 <textarea
                                     id="person-notes"
                                     wire:model.live="notes"
-                                    placeholder="Add notes... (use - for lists, **bold**, ## headings)"
+                                    placeholder="Add notes..."
                                     class="app-textarea font-mono"
                                     rows="5"
                                 ></textarea>
@@ -461,6 +486,45 @@ new class extends Component
                         </div>
                     </div>
                 @endif
+
+                {{-- EXPORT CONFIRM --}}
+                @if ($showExportModal)
+                    <div class="modal-header">
+                        <h2 class="modal-title">Export JSON</h2>
+
+                        <button
+                            wire:click="closeExportModal"
+                            class="icon-button"
+                        >
+                            Close
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="space-y-4">
+                            <p class="text-sm text-[var(--app-text-muted)]">
+                                Export <strong>{{ $this->list->name }}</strong> as a JSON file?
+                            </p>
+
+                            <div class="flex gap-3">
+                                <a
+                                    href="{{ route('lists.export', $this->list) }}"
+                                    class="btn-primary"
+                                >
+                                    Confirm Export
+                                </a>
+
+                                <button
+                                    wire:click="closeExportModal"
+                                    class="btn-secondary"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
             </div>
         </div>
     @endif

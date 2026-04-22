@@ -10,6 +10,7 @@ new class extends Component
     public string $name = '';
     public string $description = '';
 
+    public bool $showImportListModal = false;
     public bool $showCreateListModal = false;
 
     /**
@@ -59,6 +60,22 @@ new class extends Component
     {
         $this->showCreateListModal = false;
     }
+
+    /**
+     * Open import list modal
+     */
+    public function openImportListModal(): void
+    {
+        $this->showImportListModal = true;
+    }
+
+    /**
+     * Close import list modal
+     */
+    public function closeImportListModal(): void
+    {
+        $this->showImportListModal = false;
+    }
 };
 
 ?>
@@ -70,12 +87,21 @@ new class extends Component
             <p class="page-subtitle">Create and manage your lists.</p>
         </div>
 
-        <button
-            wire:click="openCreateListModal"
-            class="btn-primary"
-        >
-            Create List
-        </button>
+        <div class="flex gap-3">
+            <button
+                wire:click="openImportListModal"
+                class="btn-secondary"
+            >
+                Import JSON
+            </button>
+
+            <button
+                wire:click="openCreateListModal"
+                class="btn-primary"
+            >
+                Create List
+            </button>
+        </div>
     </div>
 
     <div class="space-y-4">
@@ -119,6 +145,7 @@ new class extends Component
         @endif
     </div>
 
+    <!-- Modals -->
     @if ($showCreateListModal)
         <div
             class="modal-backdrop"
@@ -180,6 +207,89 @@ new class extends Component
                             Create List
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if ($showImportListModal)
+        <div
+            class="modal-backdrop"
+            wire:click="closeImportListModal"
+        ></div>
+
+        <div class="modal-wrap">
+            <div class="modal-panel">
+                <div class="modal-header">
+                    <h2 class="modal-title">Import JSON</h2>
+
+                    <button
+                        wire:click="closeImportListModal"
+                        class="icon-button"
+                    >
+                        Close
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <form
+                        action="{{ route('lists.import') }}"
+                        method="POST"
+                        enctype="multipart/form-data"
+                        class="space-y-4"
+                    >
+                        @csrf
+
+                        <div>
+                            <label for="list_file" class="app-label">JSON File</label>
+                            <input
+                                id="list_file"
+                                name="list_file"
+                                type="file"
+                                accept=".json,application/json"
+                                class="app-input"
+                            >
+
+                            @error('list_file')
+                                <p class="validation-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <p class="text-sm text-[var(--app-text-muted)]">
+                            Upload a JSON file exported from one of your lists.
+                        </p>
+
+                        <details class="mt-3 text-sm text-[var(--app-text-muted)]">
+                            <summary class="cursor-pointer hover:text-[var(--app-text)]">
+                                View sample format
+                            </summary>
+
+                            <pre class="mt-2 p-3 rounded bg-[var(--app-surface-2)] overflow-x-auto text-xs">
+                        {
+                        "name": "My List",
+                        "description": "Optional description",
+                        "entries": [
+                            {
+                            "name": "Example Entry",
+                            "category": "Optional category",
+                            "notes": "## Notes\n- Item one\n- Item two",
+                            "tags": [
+                                { "name": "Important", "color": "#0e639c" },
+                                { "name": "Example", "color": "#c74e39" }
+                            ]
+                            }
+                        ]
+                        }
+                            </pre>
+                        </details>
+
+                        <button
+                            type="submit"
+                            class="btn-primary w-full"
+                        >
+                            Import List
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
