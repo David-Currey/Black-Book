@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\UserList;
+use App\Models\Person;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -13,6 +14,8 @@ new class extends Component
 
     public string $personName = '';
     public string $game = '';
+    public string $status = 'neutral';
+    public ?int $rating = null;
     public string $notes = '';
     public string $search = '';
 
@@ -44,6 +47,8 @@ new class extends Component
         $this->validate([
             'personName' => 'required|string|max:255',
             'game' => 'nullable|string|max:255',
+            'status' => 'required|string|in:' . implode(',', array_keys(Person::STATUSES)),
+            'rating' => 'nullable|integer|min:1|max:5',
             'notes' => 'nullable|string|max:1000',
         ], [
             'personName.required' => 'Person name is required.',
@@ -52,6 +57,8 @@ new class extends Component
         $person = $this->list->people()->create([
             'name' => $this->personName,
             'game' => $this->game,
+            'status' => $this->status,
+            'rating' => $this->rating,
             'notes' => $this->notes,
         ]);
 
@@ -73,7 +80,8 @@ new class extends Component
 
         $person->tags()->sync($tagIds);
 
-        $this->reset('personName', 'game', 'notes');
+        $this->reset('personName', 'game', 'status', 'rating', 'notes');
+        $this->status = 'neutral';
         $this->selectedTags = [];
 
         $this->list->refresh();
@@ -138,7 +146,8 @@ new class extends Component
         $this->showEditListModal = false;
         $this->showAddPersonModal = true;
 
-        $this->reset('personName', 'game', 'notes');
+        $this->reset('personName', 'game', 'status', 'rating', 'notes');
+        $this->status = 'neutral';
         $this->selectedTags = [];
     }
 
@@ -167,6 +176,7 @@ new class extends Component
                     $subQuery
                         ->where('name', 'like', '%' . $search . '%')
                         ->orWhere('game', 'like', '%' . $search . '%')
+                        ->orWhere('status', 'like', '%' . $search . '%')
                         ->orWhereHas('tags', function ($tagQuery) use ($search) {
                             $tagQuery->where('name', 'like', '%' . $search . '%');
                         });
@@ -286,6 +296,14 @@ new class extends Component
                                         @if ($person->game)
                                             <p class="card-text">{{ $person->game }}</p>
                                         @endif
+
+                                        <div class="flex flex-wrap gap-2 mt-3">
+                                            <span class="card-meta">{{ $person->statusLabel() }}</span>
+
+                                            @if ($person->rating)
+                                                <span class="card-meta">{{ $person->rating }}/5</span>
+                                            @endif
+                                        </div>
 
                                         @if ($person->tags->isNotEmpty())
                                             <div class="flex flex-wrap gap-2 mt-3">
@@ -452,6 +470,43 @@ new class extends Component
                                 @error('game')
                                     <p class="validation-error">{{ $message }}</p>
                                 @enderror
+                            </div>
+
+                            <div class="grid gap-4 md:grid-cols-2">
+                                <div>
+                                    <label for="person-status" class="app-label">Status</label>
+                                    <select
+                                        id="person-status"
+                                        wire:model.live="status"
+                                        class="app-input"
+                                    >
+                                        @foreach (Person::STATUSES as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+
+                                    @error('status')
+                                        <p class="validation-error">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                <div>
+                                    <label for="person-rating" class="app-label">Rating</label>
+                                    <select
+                                        id="person-rating"
+                                        wire:model.live="rating"
+                                        class="app-input"
+                                    >
+                                        <option value="">Not rated</option>
+                                        @for ($value = 1; $value <= 5; $value++)
+                                            <option value="{{ $value }}">{{ $value }}/5</option>
+                                        @endfor
+                                    </select>
+
+                                    @error('rating')
+                                        <p class="validation-error">{{ $message }}</p>
+                                    @enderror
+                                </div>
                             </div>
 
                             <livewire:tags.selector wire:model="selectedTags" />

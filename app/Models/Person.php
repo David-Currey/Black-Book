@@ -8,12 +8,34 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Person extends Model
 {
+    public const STATUSES = [
+        'neutral' => 'Neutral',
+        'trusted' => 'Trusted',
+        'watch' => 'Watch',
+        'avoid' => 'Avoid',
+        'archived' => 'Archived',
+    ];
+
     protected $fillable = [
         'user_list_id',
         'name',
         'game',
+        'status',
+        'rating',
         'notes',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'rating' => 'integer',
+        ];
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->status] ?? self::STATUSES['neutral'];
+    }
 
     /**
      * Get the list that this person belongs to

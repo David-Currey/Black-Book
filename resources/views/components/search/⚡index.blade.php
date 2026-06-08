@@ -54,6 +54,7 @@ new class extends Component
                 $query
                     ->where('name', 'like', '%' . $search . '%')
                     ->orWhere('game', 'like', '%' . $search . '%')
+                    ->orWhere('status', 'like', '%' . $search . '%')
                     ->orWhere('notes', 'like', '%' . $search . '%')
                     ->orWhereHas('tags', fn ($tagQuery) => $tagQuery->where('name', 'like', '%' . $search . '%'));
             })
@@ -221,6 +222,14 @@ new class extends Component
                                                         <span class="text-[var(--app-text-muted)]">/ {{ $person->game }}</span>
                                                     @endif
                                                 </p>
+
+                                                <div class="mt-3 flex flex-wrap gap-2">
+                                                    <span class="card-meta">{{ $person->statusLabel() }}</span>
+
+                                                    @if ($person->rating)
+                                                        <span class="card-meta">{{ $person->rating }}/5</span>
+                                                    @endif
+                                                </div>
 
                                                 @if ($person->notes)
                                                     <p class="card-text line-clamp-2">{{ \Illuminate\Support\Str::limit(strip_tags($person->notes), 140) }}</p>

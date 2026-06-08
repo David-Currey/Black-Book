@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Person;
 use App\Models\UserList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +26,8 @@ class ListTransferController extends Controller
                 return [
                     'name' => $person->name,
                     'category' => $person->game,
+                    'status' => $person->status,
+                    'rating' => $person->rating,
                     'notes' => $person->notes,
                     'tags' => $person->tags->map(function ($tag) {
                         return [
@@ -88,9 +91,17 @@ class ListTransferController extends Controller
                 continue;
             }
 
+            $status = $entry['status'] ?? 'neutral';
+            $status = array_key_exists($status, Person::STATUSES) ? $status : 'neutral';
+
+            $rating = $entry['rating'] ?? null;
+            $rating = is_numeric($rating) && $rating >= 1 && $rating <= 5 ? (int) $rating : null;
+
             $person = $list->people()->create([
                 'name' => $entry['name'],
                 'game' => $entry['category'] ?? null,
+                'status' => $status,
+                'rating' => $rating,
                 'notes' => $entry['notes'] ?? null,
             ]);
 

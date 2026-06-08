@@ -10,6 +10,8 @@ new class extends Component
 
     public string $name = '';
     public string $game = '';
+    public string $status = 'neutral';
+    public ?int $rating = null;
     public string $notes = '';
     public string $tagName = '';
     public string $tagColor = '#0e639c';
@@ -29,6 +31,8 @@ new class extends Component
         $this->person = $person;
         $this->name = $person->name;
         $this->game = $person->game ?? '';
+        $this->status = $person->status ?? 'neutral';
+        $this->rating = $person->rating;
         $this->notes = $person->notes ?? '';
 
         $this->person->load('tags');
@@ -50,12 +54,16 @@ new class extends Component
         $this->validate([
             'name' => 'required|string|max:255',
             'game' => 'nullable|string|max:255',
+            'status' => 'required|string|in:' . implode(',', array_keys(Person::STATUSES)),
+            'rating' => 'nullable|integer|min:1|max:5',
             'notes' => 'nullable|string|max:1000',
         ]);
 
         $this->person->update([
             'name' => $this->name,
             'game' => $this->game,
+            'status' => $this->status,
+            'rating' => $this->rating,
             'notes' => $this->notes,
         ]);
 
@@ -272,6 +280,22 @@ new class extends Component
                 </div>
             @endif
 
+            <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                    <p class="app-label">Status</p>
+                    <span class="card-meta">{{ $this->person->statusLabel() }}</span>
+                </div>
+
+                <div>
+                    <p class="app-label">Rating</p>
+                    @if ($this->person->rating)
+                        <span class="card-meta">{{ $this->person->rating }}/5</span>
+                    @else
+                        <p class="text-muted">Not rated.</p>
+                    @endif
+                </div>
+            </div>
+
             <div>
                 <p class="app-label">Tags</p>
 
@@ -358,6 +382,43 @@ new class extends Component
                             @error('game')
                                 <p class="validation-error">{{ $message }}</p>
                             @enderror
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label for="person-status" class="app-label">Status</label>
+                                <select
+                                    id="person-status"
+                                    wire:model.live="status"
+                                    class="app-input"
+                                >
+                                    @foreach (Person::STATUSES as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+
+                                @error('status')
+                                    <p class="validation-error">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <label for="person-rating" class="app-label">Rating</label>
+                                <select
+                                    id="person-rating"
+                                    wire:model.live="rating"
+                                    class="app-input"
+                                >
+                                    <option value="">Not rated</option>
+                                    @for ($value = 1; $value <= 5; $value++)
+                                        <option value="{{ $value }}">{{ $value }}/5</option>
+                                    @endfor
+                                </select>
+
+                                @error('rating')
+                                    <p class="validation-error">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
 
                         <livewire:tags.selector wire:model="selectedTags" />
