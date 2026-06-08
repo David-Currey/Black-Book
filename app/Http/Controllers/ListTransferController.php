@@ -17,7 +17,7 @@ class ListTransferController extends Controller
     {
         abort_unless($list->user_id === Auth::id(), 403);
 
-        $list->load('people.tags');
+        $list->load(['people.tags', 'people.timelineNotes']);
 
         $data = [
             'name' => $list->name,
@@ -29,6 +29,15 @@ class ListTransferController extends Controller
                     'status' => $person->status,
                     'rating' => $person->rating,
                     'notes' => $person->notes,
+                    'timeline' => $person->timelineNotes
+                        ->sortByDesc(fn ($note) => $note->occurred_on ?? $note->created_at)
+                        ->map(function ($note) {
+                            return [
+                                'occurred_on' => $note->occurred_on?->toDateString(),
+                                'note' => $note->note,
+                            ];
+                        })
+                        ->values(),
                     'tags' => $person->tags->map(function ($tag) {
                         return [
                             'name' => $tag->name,
@@ -124,6 +133,19 @@ class ListTransferController extends Controller
 
             if (!empty($tagIds)) {
                 $person->tags()->sync($tagIds);
+            }
+
+            if (!empty($entry['timeline']) && is_array($entry['timeline'])) {
+                foreach ($entry['timeline'] as $timelineNote) {
+                    if (empty($timelineNote['note']) || !is_string($timelineNote['note'])) {
+                        continue;
+                    }
+
+                    $person->timelineNotes()->create([
+                        'occurred_on' => $timelineNote['occurred_on'] ?? null,
+                        'note' => $timelineNote['note'],
+                    ]);
+                }
             }
         }
 

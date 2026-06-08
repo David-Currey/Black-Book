@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\EntryNote;
 use App\Models\Person;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -13,6 +14,8 @@ new class extends Component
     public string $status = 'neutral';
     public ?int $rating = null;
     public string $notes = '';
+    public string $timelineNote = '';
+    public string $timelineDate = '';
     public string $tagName = '';
     public string $tagColor = '#0e639c';
 
@@ -35,7 +38,7 @@ new class extends Component
         $this->rating = $person->rating;
         $this->notes = $person->notes ?? '';
 
-        $this->person->load('tags');
+        $this->person->load(['tags', 'timelineNotes']);
 
         $this->selectedTags = $this->person->tags->map(function ($tag) {
             return [
@@ -101,6 +104,42 @@ new class extends Component
         $this->person->delete();
 
         return $this->redirect(route('lists.show', $list), navigate: true);
+    }
+
+    /**
+     * Add a dated note to this entry's timeline.
+     */
+    public function addTimelineNote(): void
+    {
+        $this->validate([
+            'timelineDate' => 'nullable|date',
+            'timelineNote' => 'required|string|max:2000',
+        ], [
+            'timelineNote.required' => 'Timeline note text is required.',
+        ]);
+
+        $this->person->timelineNotes()->create([
+            'occurred_on' => $this->timelineDate ?: null,
+            'note' => $this->timelineNote,
+        ]);
+
+        $this->reset('timelineDate', 'timelineNote');
+        $this->person->load('timelineNotes');
+    }
+
+    /**
+     * Remove a note from this entry's timeline.
+     */
+    public function deleteTimelineNote(int $noteId): void
+    {
+        $note = EntryNote::query()
+            ->whereKey($noteId)
+            ->whereHas('person.list', fn ($query) => $query->where('user_id', Auth::id()))
+            ->firstOrFail();
+
+        $note->delete();
+
+        $this->person->load('timelineNotes');
     }
 
     /**
@@ -213,6 +252,18 @@ new class extends Component
     public function getHasMaxTagsProperty(): bool
     {
         return $this->person->tags->count() >= 5;
+    }
+
+    /**
+     * Get this entry's timeline notes newest first.
+     */
+    public function getTimelineNotesProperty()
+    {
+        return $this->person
+            ->timelineNotes()
+            ->orderByRaw('COALESCE(occurred_on, created_at) DESC')
+            ->orderByDesc('created_at')
+            ->get();
     }
 
     /**
@@ -332,6 +383,85 @@ new class extends Component
                     <p class="text-muted">No notes added yet.</p>
                 @endif
             </div>
+        </div>
+    </div>
+
+    <div class="panel mt-6">
+        <div class="panel-inner space-y-6">
+            <div>
+                <h2 class="panel-title !mb-1">Timeline</h2>
+                <p class="text-sm text-[var(--app-text-muted)]">Keep dated history, follow-ups, and context for this entry.</p>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-[180px_1fr_auto]">
+                <div>
+                    <label for="timeline-date" class="app-label">Date</label>
+                    <input
+                        id="timeline-date"
+                        type="date"
+                        wire:model.live="timelineDate"
+                        class="app-input"
+                    >
+
+                    @error('timelineDate')
+                        <p class="validation-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="timeline-note" class="app-label">Note</label>
+                    <textarea
+                        id="timeline-note"
+                        wire:model.live="timelineNote"
+                        class="app-textarea"
+                        rows="3"
+                        placeholder="Add a dated note..."
+                    ></textarea>
+
+                    @error('timelineNote')
+                        <p class="validation-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="flex items-end">
+                    <button
+                        wire:click="addTimelineNote"
+                        wire:loading.attr="disabled"
+                        class="btn-primary w-full md:w-auto"
+                    >
+                        Add Note
+                    </button>
+                </div>
+            </div>
+
+            @if ($this->timelineNotes->isEmpty())
+                <p class="text-muted">No timeline notes yet.</p>
+            @else
+                <ol class="space-y-3">
+                    @foreach ($this->timelineNotes as $note)
+                        <li class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <p class="app-label">
+                                        {{ $note->occurred_on ? $note->occurred_on->format('M j, Y') : $note->created_at->format('M j, Y') }}
+                                    </p>
+                                    <div class="prose prose-invert max-w-none text-sm">
+                                        {!! $converter->convert($note->note) !!}
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    wire:click="deleteTimelineNote({{ $note->id }})"
+                                    class="icon-button shrink-0"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        </li>
+                    @endforeach
+                </ol>
+            @endif
         </div>
     </div>
 
