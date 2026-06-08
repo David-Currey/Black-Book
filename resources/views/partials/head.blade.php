@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <title>
-    {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Black Book') : config('app.name', 'Black Book') }}
+    {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Dossier') : config('app.name', 'Dossier') }}
 </title>
 
 <link rel="icon" href="/favicon.ico" sizes="any">

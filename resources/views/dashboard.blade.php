@@ -11,7 +11,7 @@
         <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div class="page-header !mb-0">
                 <p class="eyebrow">Overview</p>
-                <h1 class="page-title mt-2">Your Black Book</h1>
+                <h1 class="page-title mt-2">Your Dossier</h1>
                 <p class="page-subtitle">
                     A quick read on your lists, entries, and tagging activity.
                 </p>

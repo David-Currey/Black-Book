@@ -10,7 +10,7 @@
                     <span class="flex size-11 items-center justify-center rounded-md bg-[var(--app-accent)] text-[var(--app-accent-contrast)]">
                         <x-app-logo-icon class="size-7" />
                     </span>
-                    <span>{{ config('app.name', 'Black Book') }}</span>
+                    <span>{{ config('app.name', 'Dossier') }}</span>
                 </a>
 
                 <div class="mt-16 max-w-xl">
@@ -19,7 +19,7 @@
                         Keep the names, notes, and context that matter close at hand.
                     </h1>
                     <p class="mt-5 text-base leading-7 text-[var(--app-text-muted)]">
-                        Black Book gives you a focused workspace for building curated lists, tagging entries, and keeping markdown notes without the noise of a spreadsheet.
+                        Dossier gives you a focused workspace for building curated lists, tagging entries, and keeping markdown notes without the noise of a spreadsheet.
                     </p>
                 </div>
 
@@ -44,7 +44,7 @@
                     <span class="flex size-10 items-center justify-center rounded-md bg-[var(--app-accent)] text-[var(--app-accent-contrast)]">
                         <x-app-logo-icon class="size-6" />
                     </span>
-                    <span class="text-lg font-semibold">{{ config('app.name', 'Black Book') }}</span>
+                    <span class="text-lg font-semibold">{{ config('app.name', 'Dossier') }}</span>
                 </div>
 
                 <div>

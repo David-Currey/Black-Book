@@ -10,7 +10,7 @@
                     <span class="flex size-11 items-center justify-center rounded-md bg-[var(--app-accent)] text-[var(--app-accent-contrast)]">
                         <x-app-logo-icon class="size-7" />
                     </span>
-                    <span>{{ config('app.name', 'Black Book') }}</span>
+                    <span>{{ config('app.name', 'Dossier') }}</span>
                 </a>
 
                 <div class="mt-14 max-w-2xl">
