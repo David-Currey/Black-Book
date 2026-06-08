@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\EntryNote;
+use App\Models\EntryReminder;
 use App\Models\Person;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -16,6 +17,8 @@ new class extends Component
     public string $notes = '';
     public string $timelineNote = '';
     public string $timelineDate = '';
+    public string $reminderDate = '';
+    public string $reminderNote = '';
     public string $tagName = '';
     public string $tagColor = '#0e639c';
 
@@ -39,7 +42,7 @@ new class extends Component
         $this->rating = $person->rating;
         $this->notes = $person->notes ?? '';
 
-        $this->person->load(['tags', 'timelineNotes', 'customFieldValues']);
+        $this->person->load(['tags', 'timelineNotes', 'customFieldValues', 'reminders']);
         $this->customFieldValues = $this->person->customFieldValues
             ->pluck('value', 'list_custom_field_id')
             ->toArray();
@@ -146,6 +149,48 @@ new class extends Component
         $note->delete();
 
         $this->person->load('timelineNotes');
+    }
+
+    /**
+     * Add a reminder for this entry.
+     */
+    public function addReminder(): void
+    {
+        $this->validate([
+            'reminderDate' => 'required|date',
+            'reminderNote' => 'required|string|max:255',
+        ], [
+            'reminderDate.required' => 'Reminder date is required.',
+            'reminderNote.required' => 'Reminder note is required.',
+        ]);
+
+        $this->person->reminders()->create([
+            'remind_on' => $this->reminderDate,
+            'note' => $this->reminderNote,
+        ]);
+
+        $this->reset('reminderDate', 'reminderNote');
+        $this->person->load('reminders');
+    }
+
+    /**
+     * Mark a reminder complete.
+     */
+    public function completeReminder(int $reminderId): void
+    {
+        $this->ownedReminder($reminderId)->update(['completed_at' => now()]);
+
+        $this->person->load('reminders');
+    }
+
+    /**
+     * Delete a reminder.
+     */
+    public function deleteReminder(int $reminderId): void
+    {
+        $this->ownedReminder($reminderId)->delete();
+
+        $this->person->load('reminders');
     }
 
     /**
@@ -273,6 +318,19 @@ new class extends Component
     }
 
     /**
+     * Get open reminders sorted by due date.
+     */
+    public function getOpenRemindersProperty()
+    {
+        return $this->person
+            ->reminders()
+            ->whereNull('completed_at')
+            ->orderBy('remind_on')
+            ->orderBy('created_at')
+            ->get();
+    }
+
+    /**
      * Get the parent list's custom fields.
      */
     public function getCustomFieldsProperty()
@@ -302,6 +360,14 @@ new class extends Component
                 ['value' => $value]
             );
         }
+    }
+
+    private function ownedReminder(int $reminderId): EntryReminder
+    {
+        return EntryReminder::query()
+            ->whereKey($reminderId)
+            ->whereHas('person.list', fn ($query) => $query->where('user_id', Auth::id()))
+            ->firstOrFail();
     }
 
     /**
@@ -443,6 +509,93 @@ new class extends Component
                     <p class="text-muted">No notes added yet.</p>
                 @endif
             </div>
+        </div>
+    </div>
+
+    <div class="panel mt-6">
+        <div class="panel-inner space-y-6">
+            <div>
+                <h2 class="panel-title !mb-1">Reminders</h2>
+                <p class="text-sm text-[var(--app-text-muted)]">Schedule follow-ups or review dates for this entry.</p>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-[180px_1fr_auto]">
+                <div>
+                    <label for="reminder-date" class="app-label">Date</label>
+                    <input
+                        id="reminder-date"
+                        type="date"
+                        wire:model.live="reminderDate"
+                        class="app-input"
+                    >
+
+                    @error('reminderDate')
+                        <p class="validation-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="reminder-note" class="app-label">Reminder</label>
+                    <input
+                        id="reminder-note"
+                        type="text"
+                        wire:model.live="reminderNote"
+                        class="app-input"
+                        placeholder="Ex. Follow up next week"
+                    >
+
+                    @error('reminderNote')
+                        <p class="validation-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="flex items-end">
+                    <button
+                        wire:click="addReminder"
+                        wire:loading.attr="disabled"
+                        class="btn-primary w-full md:w-auto"
+                    >
+                        Add Reminder
+                    </button>
+                </div>
+            </div>
+
+            @if ($this->openReminders->isEmpty())
+                <p class="text-muted">No open reminders.</p>
+            @else
+                <ul class="space-y-3">
+                    @foreach ($this->openReminders as $reminder)
+                        <li class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4">
+                            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <p class="app-label">
+                                        {{ $reminder->remind_on->format('M j, Y') }}
+                                        @if ($reminder->is_overdue)
+                                            <span class="text-[var(--app-danger)]">Overdue</span>
+                                        @endif
+                                    </p>
+                                    <p>{{ $reminder->note }}</p>
+                                </div>
+
+                                <div class="flex flex-wrap gap-2">
+                                    <button
+                                        wire:click="completeReminder({{ $reminder->id }})"
+                                        class="btn-secondary"
+                                    >
+                                        Complete
+                                    </button>
+                                    <button
+                                        wire:click="deleteReminder({{ $reminder->id }})"
+                                        class="icon-button"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
         </div>
     </div>
 

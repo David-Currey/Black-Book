@@ -5,6 +5,13 @@
         $totalEntries = \App\Models\Person::whereHas('list', fn ($query) => $query->where('user_id', $user->id))->count();
         $totalTags = $user->tags()->count();
         $recentLists = $user->lists()->withCount('people')->latest()->take(4)->get();
+        $upcomingReminders = \App\Models\EntryReminder::query()
+            ->with('person.list')
+            ->whereNull('completed_at')
+            ->whereHas('person.list', fn ($query) => $query->where('user_id', $user->id))
+            ->orderBy('remind_on')
+            ->take(5)
+            ->get();
     @endphp
 
     <div class="app-shell space-y-6">
@@ -81,6 +88,36 @@
                                         <span class="card-meta">
                                             {{ $list->people_count }} {{ \Illuminate\Support\Str::plural('entry', $list->people_count) }}
                                         </span>
+                                    </div>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-inner">
+                <div class="mb-5">
+                    <h2 class="panel-title !mb-1">Upcoming Reminders</h2>
+                    <p class="text-sm text-[var(--app-text-muted)]">Open follow-ups sorted by due date.</p>
+                </div>
+
+                @if ($upcomingReminders->isEmpty())
+                    <p class="text-muted">No open reminders yet.</p>
+                @else
+                    <ul class="grid gap-3">
+                        @foreach ($upcomingReminders as $reminder)
+                            <li>
+                                <a href="{{ route('people.show', $reminder->person) }}" class="card-link min-h-0" wire:navigate>
+                                    <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                        <div>
+                                            <h3 class="card-title">{{ $reminder->note }}</h3>
+                                            <p class="card-text">{{ $reminder->person->name }} / {{ $reminder->person->list->name }}</p>
+                                        </div>
+
+                                        <span class="card-meta">{{ $reminder->remind_on->format('M j, Y') }}</span>
                                     </div>
                                 </a>
                             </li>

@@ -17,7 +17,7 @@ class ListTransferController extends Controller
     {
         abort_unless($list->user_id === Auth::id(), 403);
 
-        $list->load(['customFields', 'people.tags', 'people.timelineNotes', 'people.customFieldValues.field']);
+        $list->load(['customFields', 'people.tags', 'people.timelineNotes', 'people.reminders', 'people.customFieldValues.field']);
 
         $data = [
             'name' => $list->name,
@@ -39,6 +39,16 @@ class ListTransferController extends Controller
                             return [
                                 'occurred_on' => $note->occurred_on?->toDateString(),
                                 'note' => $note->note,
+                            ];
+                        })
+                        ->values(),
+                    'reminders' => $person->reminders
+                        ->whereNull('completed_at')
+                        ->sortBy('remind_on')
+                        ->map(function ($reminder) {
+                            return [
+                                'remind_on' => $reminder->remind_on->toDateString(),
+                                'note' => $reminder->note,
                             ];
                         })
                         ->values(),
@@ -193,6 +203,23 @@ class ListTransferController extends Controller
                     $person->timelineNotes()->create([
                         'occurred_on' => $timelineNote['occurred_on'] ?? null,
                         'note' => $timelineNote['note'],
+                    ]);
+                }
+            }
+
+            if (!empty($entry['reminders']) && is_array($entry['reminders'])) {
+                foreach ($entry['reminders'] as $reminder) {
+                    if (
+                        empty($reminder['remind_on'])
+                        || empty($reminder['note'])
+                        || ! is_string($reminder['note'])
+                    ) {
+                        continue;
+                    }
+
+                    $person->reminders()->create([
+                        'remind_on' => $reminder['remind_on'],
+                        'note' => $reminder['note'],
                     ]);
                 }
             }

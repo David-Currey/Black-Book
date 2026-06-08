@@ -63,4 +63,9 @@ class Person extends Model
     {
         return $this->hasMany(EntryCustomFieldValue::class);
     }
+
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(EntryReminder::class);
+    }
 }
