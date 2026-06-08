@@ -60,4 +60,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Tag::class);
     }
+
+    /**
+     * Get list shares granted to this user.
+     */
+    public function listShares()
+    {
+        return $this->hasMany(ListShare::class);
+    }
 }

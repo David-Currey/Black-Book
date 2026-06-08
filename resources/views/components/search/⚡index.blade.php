@@ -23,9 +23,13 @@ new class extends Component
             return collect();
         }
 
-        return Auth::user()
-            ->lists()
+        return UserList::query()
             ->withCount('people')
+            ->where(function ($query) {
+                $query
+                    ->where('user_id', Auth::id())
+                    ->orWhereHas('shares', fn ($shareQuery) => $shareQuery->where('user_id', Auth::id()));
+            })
             ->where(function ($query) use ($search) {
                 $query
                     ->where('name', 'like', '%' . $search . '%')
@@ -49,7 +53,11 @@ new class extends Component
 
         return Person::query()
             ->with(['list', 'tags'])
-            ->whereHas('list', fn ($query) => $query->where('user_id', Auth::id()))
+            ->whereHas('list', function ($query) {
+                $query
+                    ->where('user_id', Auth::id())
+                    ->orWhereHas('shares', fn ($shareQuery) => $shareQuery->where('user_id', Auth::id()));
+            })
             ->where(function ($query) use ($search) {
                 $query
                     ->where('name', 'like', '%' . $search . '%')

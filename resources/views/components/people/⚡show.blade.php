@@ -33,7 +33,7 @@ new class extends Component
      */
     public function mount(Person $person): void
     {
-        abort_unless($person->list->user_id === Auth::id(), 403);
+        abort_unless($person->list->canBeViewedBy(Auth::user()), 403);
 
         $this->person = $person;
         $this->name = $person->name;
@@ -61,6 +61,8 @@ new class extends Component
      */
     public function updatePerson(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->validate([
             'name' => 'required|string|max:255',
             'game' => 'nullable|string|max:255',
@@ -108,6 +110,8 @@ new class extends Component
      */
     public function deletePerson()
     {
+        abort_unless($this->canEdit, 403);
+
         $list = $this->person->list;
 
         $this->person->delete();
@@ -120,6 +124,8 @@ new class extends Component
      */
     public function addTimelineNote(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->validate([
             'timelineDate' => 'nullable|date',
             'timelineNote' => 'required|string|max:2000',
@@ -141,9 +147,11 @@ new class extends Component
      */
     public function deleteTimelineNote(int $noteId): void
     {
+        abort_unless($this->canEdit, 403);
+
         $note = EntryNote::query()
             ->whereKey($noteId)
-            ->whereHas('person.list', fn ($query) => $query->where('user_id', Auth::id()))
+            ->where('person_id', $this->person->id)
             ->firstOrFail();
 
         $note->delete();
@@ -156,6 +164,8 @@ new class extends Component
      */
     public function addReminder(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->validate([
             'reminderDate' => 'required|date',
             'reminderNote' => 'required|string|max:255',
@@ -178,6 +188,8 @@ new class extends Component
      */
     public function completeReminder(int $reminderId): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->ownedReminder($reminderId)->update(['completed_at' => now()]);
 
         $this->person->load('reminders');
@@ -188,6 +200,8 @@ new class extends Component
      */
     public function deleteReminder(int $reminderId): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->ownedReminder($reminderId)->delete();
 
         $this->person->load('reminders');
@@ -206,6 +220,8 @@ new class extends Component
      */
     public function addTag(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->validate([
             'tagName' => 'required|string|max:50',
             'tagColor' => 'required|string|size:7',
@@ -243,6 +259,8 @@ new class extends Component
      */
     public function removeTag(int $tagId): void
     {
+        abort_unless($this->canEdit, 403);
+
         $tag = $this->person->tags()->find($tagId);
 
         $this->person->tags()->detach($tagId);
@@ -259,6 +277,8 @@ new class extends Component
      */
     public function attachExistingTag(int $tagId): void
     {
+        abort_unless($this->canEdit, 403);
+
         if ($this->person->tags()->count() >= 5) {
             $this->addError('tagName', 'A person can have a maximum of 5 tags.');
             return;
@@ -343,6 +363,11 @@ new class extends Component
             ->get();
     }
 
+    public function getCanEditProperty(): bool
+    {
+        return $this->person->list->canBeEditedBy(Auth::user());
+    }
+
     private function syncCustomFieldValues(): void
     {
         foreach ($this->customFields as $field) {
@@ -366,7 +391,7 @@ new class extends Component
     {
         return EntryReminder::query()
             ->whereKey($reminderId)
-            ->whereHas('person.list', fn ($query) => $query->where('user_id', Auth::id()))
+            ->where('person_id', $this->person->id)
             ->firstOrFail();
     }
 
@@ -375,6 +400,8 @@ new class extends Component
      */
     public function openEditModal(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->showEditModal = true;
     }
 
@@ -412,12 +439,14 @@ new class extends Component
                 </p>
             </div>
 
-            <button
-                wire:click="openEditModal"
-                class="btn-primary"
-            >
-                Edit Entry
-            </button>
+            @if ($this->canEdit)
+                <button
+                    wire:click="openEditModal"
+                    class="btn-primary"
+                >
+                    Edit Entry
+                </button>
+            @endif
         </div>
     </div>
 
@@ -519,46 +548,48 @@ new class extends Component
                 <p class="text-sm text-[var(--app-text-muted)]">Schedule follow-ups or review dates for this entry.</p>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-[180px_1fr_auto]">
-                <div>
-                    <label for="reminder-date" class="app-label">Date</label>
-                    <input
-                        id="reminder-date"
-                        type="date"
-                        wire:model.live="reminderDate"
-                        class="app-input"
-                    >
+            @if ($this->canEdit)
+                <div class="grid gap-4 md:grid-cols-[180px_1fr_auto]">
+                    <div>
+                        <label for="reminder-date" class="app-label">Date</label>
+                        <input
+                            id="reminder-date"
+                            type="date"
+                            wire:model.live="reminderDate"
+                            class="app-input"
+                        >
 
-                    @error('reminderDate')
-                        <p class="validation-error">{{ $message }}</p>
-                    @enderror
+                        @error('reminderDate')
+                            <p class="validation-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="reminder-note" class="app-label">Reminder</label>
+                        <input
+                            id="reminder-note"
+                            type="text"
+                            wire:model.live="reminderNote"
+                            class="app-input"
+                            placeholder="Ex. Follow up next week"
+                        >
+
+                        @error('reminderNote')
+                            <p class="validation-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="flex items-end">
+                        <button
+                            wire:click="addReminder"
+                            wire:loading.attr="disabled"
+                            class="btn-primary w-full md:w-auto"
+                        >
+                            Add Reminder
+                        </button>
+                    </div>
                 </div>
-
-                <div>
-                    <label for="reminder-note" class="app-label">Reminder</label>
-                    <input
-                        id="reminder-note"
-                        type="text"
-                        wire:model.live="reminderNote"
-                        class="app-input"
-                        placeholder="Ex. Follow up next week"
-                    >
-
-                    @error('reminderNote')
-                        <p class="validation-error">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="flex items-end">
-                    <button
-                        wire:click="addReminder"
-                        wire:loading.attr="disabled"
-                        class="btn-primary w-full md:w-auto"
-                    >
-                        Add Reminder
-                    </button>
-                </div>
-            </div>
+            @endif
 
             @if ($this->openReminders->isEmpty())
                 <p class="text-muted">No open reminders.</p>
@@ -577,20 +608,22 @@ new class extends Component
                                     <p>{{ $reminder->note }}</p>
                                 </div>
 
-                                <div class="flex flex-wrap gap-2">
-                                    <button
-                                        wire:click="completeReminder({{ $reminder->id }})"
-                                        class="btn-secondary"
-                                    >
-                                        Complete
-                                    </button>
-                                    <button
-                                        wire:click="deleteReminder({{ $reminder->id }})"
-                                        class="icon-button"
-                                    >
-                                        Remove
-                                    </button>
-                                </div>
+                                @if ($this->canEdit)
+                                    <div class="flex flex-wrap gap-2">
+                                        <button
+                                            wire:click="completeReminder({{ $reminder->id }})"
+                                            class="btn-secondary"
+                                        >
+                                            Complete
+                                        </button>
+                                        <button
+                                            wire:click="deleteReminder({{ $reminder->id }})"
+                                            class="icon-button"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                @endif
                             </div>
                         </li>
                     @endforeach
@@ -606,46 +639,48 @@ new class extends Component
                 <p class="text-sm text-[var(--app-text-muted)]">Keep dated history, follow-ups, and context for this entry.</p>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-[180px_1fr_auto]">
-                <div>
-                    <label for="timeline-date" class="app-label">Date</label>
-                    <input
-                        id="timeline-date"
-                        type="date"
-                        wire:model.live="timelineDate"
-                        class="app-input"
-                    >
+            @if ($this->canEdit)
+                <div class="grid gap-4 md:grid-cols-[180px_1fr_auto]">
+                    <div>
+                        <label for="timeline-date" class="app-label">Date</label>
+                        <input
+                            id="timeline-date"
+                            type="date"
+                            wire:model.live="timelineDate"
+                            class="app-input"
+                        >
 
-                    @error('timelineDate')
-                        <p class="validation-error">{{ $message }}</p>
-                    @enderror
+                        @error('timelineDate')
+                            <p class="validation-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="timeline-note" class="app-label">Note</label>
+                        <textarea
+                            id="timeline-note"
+                            wire:model.live="timelineNote"
+                            class="app-textarea"
+                            rows="3"
+                            placeholder="Add a dated note..."
+                        ></textarea>
+
+                        @error('timelineNote')
+                            <p class="validation-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="flex items-end">
+                        <button
+                            wire:click="addTimelineNote"
+                            wire:loading.attr="disabled"
+                            class="btn-primary w-full md:w-auto"
+                        >
+                            Add Note
+                        </button>
+                    </div>
                 </div>
-
-                <div>
-                    <label for="timeline-note" class="app-label">Note</label>
-                    <textarea
-                        id="timeline-note"
-                        wire:model.live="timelineNote"
-                        class="app-textarea"
-                        rows="3"
-                        placeholder="Add a dated note..."
-                    ></textarea>
-
-                    @error('timelineNote')
-                        <p class="validation-error">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="flex items-end">
-                    <button
-                        wire:click="addTimelineNote"
-                        wire:loading.attr="disabled"
-                        class="btn-primary w-full md:w-auto"
-                    >
-                        Add Note
-                    </button>
-                </div>
-            </div>
+            @endif
 
             @if ($this->timelineNotes->isEmpty())
                 <p class="text-muted">No timeline notes yet.</p>
@@ -663,13 +698,15 @@ new class extends Component
                                     </div>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    wire:click="deleteTimelineNote({{ $note->id }})"
-                                    class="icon-button shrink-0"
-                                >
-                                    Remove
-                                </button>
+                                @if ($this->canEdit)
+                                    <button
+                                        type="button"
+                                        wire:click="deleteTimelineNote({{ $note->id }})"
+                                        class="icon-button shrink-0"
+                                    >
+                                        Remove
+                                    </button>
+                                @endif
                             </div>
                         </li>
                     @endforeach

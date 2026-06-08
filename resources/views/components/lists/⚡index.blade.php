@@ -45,6 +45,19 @@ new class extends Component
     }
 
     /**
+     * Get lists shared with the logged-in user.
+     */
+    public function getSharedListsProperty()
+    {
+        return Auth::user()
+            ->listShares()
+            ->with(['list.people', 'list.user'])
+            ->get()
+            ->pluck('list')
+            ->filter();
+    }
+
+    /**
      * Open create list modal
      */
     public function openCreateListModal(): void
@@ -144,6 +157,38 @@ new class extends Component
             </ul>
         @endif
     </div>
+
+    @if ($this->sharedLists->isNotEmpty())
+        <div class="space-y-4 mt-8">
+            <div class="flex items-center justify-between">
+                <h2 class="panel-title !mb-0">Shared With You</h2>
+            </div>
+
+            <ul class="grid gap-4">
+                @foreach($this->sharedLists as $list)
+                    <li>
+                        <a
+                            href="{{ route('lists.show', $list) }}"
+                            class="card-link"
+                        >
+                            <div class="flex items-center justify-between gap-4 mt-3">
+                                <div class="min-w-0">
+                                    <h3 class="card-title">{{ $list->name }}</h3>
+                                    <p class="card-text">
+                                        Shared by {{ $list->user->name }}
+                                    </p>
+                                </div>
+
+                                <span class="card-meta">
+                                    {{ $list->people->count() }} {{ Str::plural('entry', $list->people->count()) }}
+                                </span>
+                            </div>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <!-- Modals -->
     @if ($showCreateListModal)

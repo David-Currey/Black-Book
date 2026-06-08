@@ -34,4 +34,29 @@ class UserList extends Model
     {
         return $this->hasMany(ListCustomField::class);
     }
+
+    public function shares(): HasMany
+    {
+        return $this->hasMany(ListShare::class);
+    }
+
+    public function canBeViewedBy(User $user): bool
+    {
+        return $this->user_id === $user->id
+            || $this->shares()->where('user_id', $user->id)->exists();
+    }
+
+    public function canBeEditedBy(User $user): bool
+    {
+        return $this->user_id === $user->id
+            || $this->shares()
+                ->where('user_id', $user->id)
+                ->where('role', 'editor')
+                ->exists();
+    }
+
+    public function isOwnedBy(User $user): bool
+    {
+        return $this->user_id === $user->id;
+    }
 }

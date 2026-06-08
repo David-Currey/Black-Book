@@ -15,7 +15,7 @@ class ListTransferController extends Controller
      */
     public function export(UserList $list)
     {
-        abort_unless($list->user_id === Auth::id(), 403);
+        abort_unless($list->canBeViewedBy(Auth::user()), 403);
 
         $list->load(['customFields', 'people.tags', 'people.timelineNotes', 'people.reminders', 'people.customFieldValues.field']);
 
@@ -78,7 +78,7 @@ class ListTransferController extends Controller
      */
     public function exportCsv(UserList $list)
     {
-        abort_unless($list->user_id === Auth::id(), 403);
+        abort_unless($list->canBeViewedBy(Auth::user()), 403);
 
         $list->load(['customFields', 'people.tags', 'people.customFieldValues.field']);
 

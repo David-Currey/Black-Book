@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\ListCustomField;
+use App\Models\ListShare;
 use App\Models\UserList;
 use App\Models\Person;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -13,6 +15,8 @@ new class extends Component
     public string $name = '';
     public string $description = '';
     public string $customFieldName = '';
+    public string $shareEmail = '';
+    public string $shareRole = 'viewer';
 
     public string $personName = '';
     public string $game = '';
@@ -35,7 +39,7 @@ new class extends Component
      */
     public function mount(UserList $list): void
     {
-        abort_unless($list->user_id === Auth::id(), 403);
+        abort_unless($list->canBeViewedBy(Auth::user()), 403);
 
         $this->list = $list;
         $this->name = $list->name;
@@ -47,6 +51,8 @@ new class extends Component
      */
     public function createPerson(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->validate([
             'personName' => 'required|string|max:255',
             'game' => 'nullable|string|max:255',
@@ -100,6 +106,8 @@ new class extends Component
      */
     public function updateList(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
@@ -122,6 +130,8 @@ new class extends Component
      */
     public function deleteList()
     {
+        abort_unless($this->canManageSharing, 403);
+
         $this->list->delete();
 
         return $this->redirect(route('lists.index'), navigate: true);
@@ -209,6 +219,8 @@ new class extends Component
      */
     public function addCustomField(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->validate([
             'customFieldName' => 'required|string|max:80',
         ], [
@@ -241,12 +253,59 @@ new class extends Component
      */
     public function deleteCustomField(int $fieldId): void
     {
+        abort_unless($this->canEdit, 403);
+
         ListCustomField::query()
             ->whereKey($fieldId)
             ->where('user_list_id', $this->list->id)
             ->delete();
 
         unset($this->customFieldValues[$fieldId]);
+        $this->list->refresh();
+    }
+
+    /**
+     * Share this list with an existing user.
+     */
+    public function addShare(): void
+    {
+        abort_unless($this->canManageSharing, 403);
+
+        $this->validate([
+            'shareEmail' => 'required|email',
+            'shareRole' => 'required|string|in:' . implode(',', array_keys(ListShare::ROLES)),
+        ]);
+
+        $user = User::where('email', $this->shareEmail)->first();
+
+        if (! $user) {
+            $this->addError('shareEmail', 'No user exists with that email address.');
+            return;
+        }
+
+        if ($user->id === $this->list->user_id) {
+            $this->addError('shareEmail', 'This user already owns the list.');
+            return;
+        }
+
+        $this->list->shares()->updateOrCreate(
+            ['user_id' => $user->id],
+            ['role' => $this->shareRole]
+        );
+
+        $this->reset('shareEmail');
+        $this->shareRole = 'viewer';
+        $this->list->refresh();
+    }
+
+    /**
+     * Remove a user share from this list.
+     */
+    public function removeShare(int $shareId): void
+    {
+        abort_unless($this->canManageSharing, 403);
+
+        $this->list->shares()->whereKey($shareId)->delete();
         $this->list->refresh();
     }
 
@@ -264,6 +323,25 @@ new class extends Component
     public function closeExportModal(): void
     {
         $this->showExportModal = false;
+    }
+
+    public function getCanEditProperty(): bool
+    {
+        return $this->list->canBeEditedBy(Auth::user());
+    }
+
+    public function getCanManageSharingProperty(): bool
+    {
+        return $this->list->isOwnedBy(Auth::user());
+    }
+
+    public function getSharesProperty()
+    {
+        return $this->list
+            ->shares()
+            ->with('user')
+            ->orderBy('created_at')
+            ->get();
     }
 
     private function syncCustomFieldValues(Person $person): void
@@ -310,19 +388,21 @@ new class extends Component
         </div>
 
         <div class="flex flex-wrap gap-3">
-            <button
-                wire:click="openAddPersonModal"
-                class="btn-primary"
-            >
-                Add Entry
-            </button>
+            @if ($this->canEdit)
+                <button
+                    wire:click="openAddPersonModal"
+                    class="btn-primary"
+                >
+                    Add Entry
+                </button>
 
-            <button
-                wire:click="openEditListModal"
-                class="btn-secondary"
-            >
-                Edit List
-            </button>
+                <button
+                    wire:click="openEditListModal"
+                    class="btn-secondary"
+                >
+                    Edit List
+                </button>
+            @endif
 
             <button
                 wire:click="openExportModal"
@@ -333,6 +413,79 @@ new class extends Component
         </div>
     </div>
 
+    @if ($this->canManageSharing)
+        <div class="panel mb-6">
+            <div class="panel-inner">
+                <div class="mb-4">
+                    <h2 class="panel-title !mb-1">Sharing</h2>
+                    <p class="text-sm text-[var(--app-text-muted)]">Share this list with another Dossier user.</p>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-[1fr_160px_auto]">
+                    <div>
+                        <label for="share-email" class="sr-only">User email</label>
+                        <input
+                            id="share-email"
+                            type="email"
+                            wire:model.live="shareEmail"
+                            class="app-input"
+                            placeholder="user@example.com"
+                        >
+
+                        @error('shareEmail')
+                            <p class="validation-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="share-role" class="sr-only">Role</label>
+                        <select
+                            id="share-role"
+                            wire:model.live="shareRole"
+                            class="app-input"
+                        >
+                            @foreach (ListShare::ROLES as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+
+                        @error('shareRole')
+                            <p class="validation-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <button
+                        wire:click="addShare"
+                        wire:loading.attr="disabled"
+                        class="btn-secondary"
+                    >
+                        Share
+                    </button>
+                </div>
+
+                @if ($this->shares->isNotEmpty())
+                    <ul class="mt-4 grid gap-3">
+                        @foreach ($this->shares as $share)
+                            <li class="flex flex-col gap-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <h3 class="card-title">{{ $share->user->name }}</h3>
+                                    <p class="card-text">{{ $share->user->email }} / {{ ListShare::ROLES[$share->role] ?? 'Viewer' }}</p>
+                                </div>
+
+                                <button
+                                    wire:click="removeShare({{ $share->id }})"
+                                    class="icon-button"
+                                >
+                                    Remove
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
+        </div>
+    @endif
+
     <div class="panel mb-6">
         <div class="panel-inner">
             <div class="mb-4">
@@ -340,31 +493,33 @@ new class extends Component
                 <p class="text-sm text-[var(--app-text-muted)]">Add list-specific fields that every entry in this list can use.</p>
             </div>
 
-            <div class="grid gap-3 md:grid-cols-[1fr_auto]">
-                <div>
-                    <label for="custom-field-name" class="sr-only">Custom field name</label>
-                    <input
-                        id="custom-field-name"
-                        type="text"
-                        wire:model.live="customFieldName"
-                        wire:keydown.enter="addCustomField"
-                        class="app-input"
-                        placeholder="Ex. Server, Discord, Company..."
+            @if ($this->canEdit)
+                <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+                    <div>
+                        <label for="custom-field-name" class="sr-only">Custom field name</label>
+                        <input
+                            id="custom-field-name"
+                            type="text"
+                            wire:model.live="customFieldName"
+                            wire:keydown.enter="addCustomField"
+                            class="app-input"
+                            placeholder="Ex. Server, Discord, Company..."
+                        >
+
+                        @error('customFieldName')
+                            <p class="validation-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <button
+                        wire:click="addCustomField"
+                        wire:loading.attr="disabled"
+                        class="btn-secondary"
                     >
-
-                    @error('customFieldName')
-                        <p class="validation-error">{{ $message }}</p>
-                    @enderror
+                        Add Field
+                    </button>
                 </div>
-
-                <button
-                    wire:click="addCustomField"
-                    wire:loading.attr="disabled"
-                    class="btn-secondary"
-                >
-                    Add Field
-                </button>
-            </div>
+            @endif
 
             @if ($this->customFields->isNotEmpty())
                 <div class="mt-4 flex flex-wrap gap-2">
@@ -374,7 +529,7 @@ new class extends Component
                             <button
                                 type="button"
                                 wire:click="deleteCustomField({{ $field->id }})"
-                                class="text-xs hover:text-[var(--app-text)]"
+                                class="text-xs hover:text-[var(--app-text)] {{ $this->canEdit ? '' : 'hidden' }}"
                             >
                                 &times;
                             </button>
@@ -534,28 +689,30 @@ new class extends Component
                                     Save List
                                 </button>
 
-                                @if (!$confirmingDelete)
-                                    <button
-                                        wire:click="confirmDelete"
-                                        class="btn-danger"
-                                    >
-                                        Delete List
-                                    </button>
-                                @else
-                                    <button
-                                        wire:click="deleteList"
-                                        wire:loading.attr="disabled"
-                                        class="btn-danger"
-                                    >
-                                        Confirm Delete
-                                    </button>
+                                @if ($this->canManageSharing)
+                                    @if (!$confirmingDelete)
+                                        <button
+                                            wire:click="confirmDelete"
+                                            class="btn-danger"
+                                        >
+                                            Delete List
+                                        </button>
+                                    @else
+                                        <button
+                                            wire:click="deleteList"
+                                            wire:loading.attr="disabled"
+                                            class="btn-danger"
+                                        >
+                                            Confirm Delete
+                                        </button>
 
-                                    <button
-                                        wire:click="$set('confirmingDelete', false)"
-                                        class="btn-secondary"
-                                    >
-                                        Cancel
-                                    </button>
+                                        <button
+                                            wire:click="$set('confirmingDelete', false)"
+                                            class="btn-secondary"
+                                        >
+                                            Cancel
+                                        </button>
+                                    @endif
                                 @endif
                             </div>
                         </div>
