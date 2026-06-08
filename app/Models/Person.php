@@ -58,4 +58,9 @@ class Person extends Model
     {
         return $this->hasMany(EntryNote::class);
     }
+
+    public function customFieldValues(): HasMany
+    {
+        return $this->hasMany(EntryCustomFieldValue::class);
+    }
 }

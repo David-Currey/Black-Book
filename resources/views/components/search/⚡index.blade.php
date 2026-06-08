@@ -57,6 +57,7 @@ new class extends Component
                     ->orWhere('status', 'like', '%' . $search . '%')
                     ->orWhere('notes', 'like', '%' . $search . '%')
                     ->orWhereHas('timelineNotes', fn ($noteQuery) => $noteQuery->where('note', 'like', '%' . $search . '%'))
+                    ->orWhereHas('customFieldValues', fn ($fieldQuery) => $fieldQuery->where('value', 'like', '%' . $search . '%'))
                     ->orWhereHas('tags', fn ($tagQuery) => $tagQuery->where('name', 'like', '%' . $search . '%'));
             })
             ->orderBy('name')

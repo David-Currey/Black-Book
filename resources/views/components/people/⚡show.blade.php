@@ -20,6 +20,7 @@ new class extends Component
     public string $tagColor = '#0e639c';
 
     public array $selectedTags = [];
+    public array $customFieldValues = [];
 
     public bool $showEditModal = false;
     public bool $confirmingDelete = false;
@@ -38,7 +39,10 @@ new class extends Component
         $this->rating = $person->rating;
         $this->notes = $person->notes ?? '';
 
-        $this->person->load(['tags', 'timelineNotes']);
+        $this->person->load(['tags', 'timelineNotes', 'customFieldValues']);
+        $this->customFieldValues = $this->person->customFieldValues
+            ->pluck('value', 'list_custom_field_id')
+            ->toArray();
 
         $this->selectedTags = $this->person->tags->map(function ($tag) {
             return [
@@ -60,6 +64,7 @@ new class extends Component
             'status' => 'required|string|in:' . implode(',', array_keys(Person::STATUSES)),
             'rating' => 'nullable|integer|min:1|max:5',
             'notes' => 'nullable|string|max:1000',
+            'customFieldValues.*' => 'nullable|string|max:1000',
         ]);
 
         $this->person->update([
@@ -87,9 +92,10 @@ new class extends Component
         }
 
         $this->person->tags()->sync($tagIds);
+        $this->syncCustomFieldValues();
 
         $this->person->refresh();
-        $this->person->load('tags');
+        $this->person->load(['tags', 'customFieldValues']);
 
         $this->closeEditModal();
     }
@@ -267,6 +273,38 @@ new class extends Component
     }
 
     /**
+     * Get the parent list's custom fields.
+     */
+    public function getCustomFieldsProperty()
+    {
+        return $this->person
+            ->list
+            ->customFields()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function syncCustomFieldValues(): void
+    {
+        foreach ($this->customFields as $field) {
+            $value = trim((string) ($this->customFieldValues[$field->id] ?? ''));
+
+            if ($value === '') {
+                $this->person->customFieldValues()
+                    ->where('list_custom_field_id', $field->id)
+                    ->delete();
+                continue;
+            }
+
+            $this->person->customFieldValues()->updateOrCreate(
+                ['list_custom_field_id' => $field->id],
+                ['value' => $value]
+            );
+        }
+    }
+
+    /**
      * Open the edit entry modal
      */
     public function openEditModal(): void
@@ -369,6 +407,28 @@ new class extends Component
                     </div>
                 @endif
             </div>
+
+            @if ($this->customFields->isNotEmpty())
+                <div>
+                    <p class="app-label">Custom Fields</p>
+                    <div class="grid gap-3 md:grid-cols-2">
+                        @foreach ($this->customFields as $field)
+                            @php
+                                $fieldValue = $this->person->customFieldValues->firstWhere('list_custom_field_id', $field->id)?->value;
+                            @endphp
+
+                            <div class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4">
+                                <p class="app-label">{{ $field->name }}</p>
+                                @if ($fieldValue)
+                                    <p>{{ $fieldValue }}</p>
+                                @else
+                                    <p class="text-muted">No value.</p>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
             <div>
                 <p class="app-label">Notes</p>
@@ -552,6 +612,31 @@ new class extends Component
                         </div>
 
                         <livewire:tags.selector wire:model="selectedTags" />
+
+                        @if ($this->customFields->isNotEmpty())
+                            <div class="space-y-4">
+                                <div>
+                                    <h3 class="panel-title !mb-1 text-base">Custom Fields</h3>
+                                    <p class="text-sm text-[var(--app-text-muted)]">Fields inherited from {{ $this->person->list->name }}.</p>
+                                </div>
+
+                                @foreach ($this->customFields as $field)
+                                    <div>
+                                        <label for="custom-field-{{ $field->id }}" class="app-label">{{ $field->name }}</label>
+                                        <input
+                                            id="custom-field-{{ $field->id }}"
+                                            type="text"
+                                            wire:model.live="customFieldValues.{{ $field->id }}"
+                                            class="app-input"
+                                        >
+
+                                        @error('customFieldValues.' . $field->id)
+                                            <p class="validation-error">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
 
                         <div>
                             <label for="person-notes" class="app-label">Notes</label>

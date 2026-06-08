@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ListCustomField;
 use App\Models\UserList;
 use App\Models\Person;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,7 @@ new class extends Component
 
     public string $name = '';
     public string $description = '';
+    public string $customFieldName = '';
 
     public string $personName = '';
     public string $game = '';
@@ -19,6 +21,7 @@ new class extends Component
     public string $notes = '';
     public string $search = '';
 
+    public array $customFieldValues = [];
     public array $selectedTags = [];
 
     public bool $confirmingDelete = false;
@@ -50,6 +53,7 @@ new class extends Component
             'status' => 'required|string|in:' . implode(',', array_keys(Person::STATUSES)),
             'rating' => 'nullable|integer|min:1|max:5',
             'notes' => 'nullable|string|max:1000',
+            'customFieldValues.*' => 'nullable|string|max:1000',
         ], [
             'personName.required' => 'Person name is required.',
         ]);
@@ -61,6 +65,8 @@ new class extends Component
             'rating' => $this->rating,
             'notes' => $this->notes,
         ]);
+
+        $this->syncCustomFieldValues($person);
 
         $tagIds = [];
 
@@ -80,7 +86,7 @@ new class extends Component
 
         $person->tags()->sync($tagIds);
 
-        $this->reset('personName', 'game', 'status', 'rating', 'notes');
+        $this->reset('personName', 'game', 'status', 'rating', 'notes', 'customFieldValues');
         $this->status = 'neutral';
         $this->selectedTags = [];
 
@@ -146,7 +152,7 @@ new class extends Component
         $this->showEditListModal = false;
         $this->showAddPersonModal = true;
 
-        $this->reset('personName', 'game', 'status', 'rating', 'notes');
+        $this->reset('personName', 'game', 'status', 'rating', 'notes', 'customFieldValues');
         $this->status = 'neutral';
         $this->selectedTags = [];
     }
@@ -187,6 +193,64 @@ new class extends Component
     }
 
     /**
+     * Get this list's custom fields in display order.
+     */
+    public function getCustomFieldsProperty()
+    {
+        return $this->list
+            ->customFields()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Add a custom field definition to this list.
+     */
+    public function addCustomField(): void
+    {
+        $this->validate([
+            'customFieldName' => 'required|string|max:80',
+        ], [
+            'customFieldName.required' => 'Custom field name is required.',
+        ]);
+
+        $name = trim($this->customFieldName);
+
+        $exists = $this->list
+            ->customFields()
+            ->whereRaw('lower(name) = ?', [strtolower($name)])
+            ->exists();
+
+        if ($exists) {
+            $this->addError('customFieldName', 'This custom field already exists.');
+            return;
+        }
+
+        $this->list->customFields()->create([
+            'name' => $name,
+            'sort_order' => $this->list->customFields()->count(),
+        ]);
+
+        $this->reset('customFieldName');
+        $this->list->refresh();
+    }
+
+    /**
+     * Remove a custom field definition and all stored values.
+     */
+    public function deleteCustomField(int $fieldId): void
+    {
+        ListCustomField::query()
+            ->whereKey($fieldId)
+            ->where('user_list_id', $this->list->id)
+            ->delete();
+
+        unset($this->customFieldValues[$fieldId]);
+        $this->list->refresh();
+    }
+
+    /**
      * Open export confirmation modal
      */
     public function openExportModal(): void
@@ -200,6 +264,25 @@ new class extends Component
     public function closeExportModal(): void
     {
         $this->showExportModal = false;
+    }
+
+    private function syncCustomFieldValues(Person $person): void
+    {
+        foreach ($this->customFields as $field) {
+            $value = trim((string) ($this->customFieldValues[$field->id] ?? ''));
+
+            if ($value === '') {
+                $person->customFieldValues()
+                    ->where('list_custom_field_id', $field->id)
+                    ->delete();
+                continue;
+            }
+
+            $person->customFieldValues()->updateOrCreate(
+                ['list_custom_field_id' => $field->id],
+                ['value' => $value]
+            );
+        }
     }
 };
 
@@ -247,6 +330,58 @@ new class extends Component
             >
                 Export JSON
             </button>
+        </div>
+    </div>
+
+    <div class="panel mb-6">
+        <div class="panel-inner">
+            <div class="mb-4">
+                <h2 class="panel-title !mb-1">Custom Fields</h2>
+                <p class="text-sm text-[var(--app-text-muted)]">Add list-specific fields that every entry in this list can use.</p>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+                <div>
+                    <label for="custom-field-name" class="sr-only">Custom field name</label>
+                    <input
+                        id="custom-field-name"
+                        type="text"
+                        wire:model.live="customFieldName"
+                        wire:keydown.enter="addCustomField"
+                        class="app-input"
+                        placeholder="Ex. Server, Discord, Company..."
+                    >
+
+                    @error('customFieldName')
+                        <p class="validation-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <button
+                    wire:click="addCustomField"
+                    wire:loading.attr="disabled"
+                    class="btn-secondary"
+                >
+                    Add Field
+                </button>
+            </div>
+
+            @if ($this->customFields->isNotEmpty())
+                <div class="mt-4 flex flex-wrap gap-2">
+                    @foreach ($this->customFields as $field)
+                        <span class="card-meta gap-2">
+                            {{ $field->name }}
+                            <button
+                                type="button"
+                                wire:click="deleteCustomField({{ $field->id }})"
+                                class="text-xs hover:text-[var(--app-text)]"
+                            >
+                                &times;
+                            </button>
+                        </span>
+                    @endforeach
+                </div>
+            @endif
         </div>
     </div>
 
@@ -510,6 +645,31 @@ new class extends Component
                             </div>
 
                             <livewire:tags.selector wire:model="selectedTags" />
+
+                            @if ($this->customFields->isNotEmpty())
+                                <div class="space-y-4">
+                                    <div>
+                                        <h3 class="panel-title !mb-1 text-base">Custom Fields</h3>
+                                        <p class="text-sm text-[var(--app-text-muted)]">These fields are specific to {{ $this->list->name }}.</p>
+                                    </div>
+
+                                    @foreach ($this->customFields as $field)
+                                        <div>
+                                            <label for="custom-field-{{ $field->id }}" class="app-label">{{ $field->name }}</label>
+                                            <input
+                                                id="custom-field-{{ $field->id }}"
+                                                type="text"
+                                                wire:model.live="customFieldValues.{{ $field->id }}"
+                                                class="app-input"
+                                            >
+
+                                            @error('customFieldValues.' . $field->id)
+                                                <p class="validation-error">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
 
                             <div>
                                 <label for="person-notes" class="app-label">Notes</label>

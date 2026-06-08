@@ -17,11 +17,15 @@ class ListTransferController extends Controller
     {
         abort_unless($list->user_id === Auth::id(), 403);
 
-        $list->load(['people.tags', 'people.timelineNotes']);
+        $list->load(['customFields', 'people.tags', 'people.timelineNotes', 'people.customFieldValues.field']);
 
         $data = [
             'name' => $list->name,
             'description' => $list->description,
+            'custom_fields' => $list->customFields
+                ->sortBy('sort_order')
+                ->map(fn ($field) => ['name' => $field->name])
+                ->values(),
             'entries' => $list->people->map(function ($person) {
                 return [
                     'name' => $person->name,
@@ -38,6 +42,8 @@ class ListTransferController extends Controller
                             ];
                         })
                         ->values(),
+                    'custom_fields' => $person->customFieldValues
+                        ->mapWithKeys(fn ($fieldValue) => [$fieldValue->field->name => $fieldValue->value]),
                     'tags' => $person->tags->map(function ($tag) {
                         return [
                             'name' => $tag->name,
@@ -95,6 +101,25 @@ class ListTransferController extends Controller
             'description' => $data['description'] ?? null,
         ]);
 
+        $customFieldsByName = collect();
+
+        if (!empty($data['custom_fields']) && is_array($data['custom_fields'])) {
+            foreach ($data['custom_fields'] as $index => $fieldData) {
+                $fieldName = is_array($fieldData) ? ($fieldData['name'] ?? null) : $fieldData;
+
+                if (empty($fieldName) || !is_string($fieldName)) {
+                    continue;
+                }
+
+                $field = $list->customFields()->firstOrCreate(
+                    ['name' => trim($fieldName)],
+                    ['sort_order' => $index]
+                );
+
+                $customFieldsByName->put($field->name, $field);
+            }
+        }
+
         foreach ($data['entries'] as $entry) {
             if (empty($entry['name']) || !is_string($entry['name'])) {
                 continue;
@@ -133,6 +158,30 @@ class ListTransferController extends Controller
 
             if (!empty($tagIds)) {
                 $person->tags()->sync($tagIds);
+            }
+
+            if (!empty($entry['custom_fields']) && is_array($entry['custom_fields'])) {
+                foreach ($entry['custom_fields'] as $fieldName => $fieldValue) {
+                    if (!is_string($fieldName) || trim((string) $fieldValue) === '') {
+                        continue;
+                    }
+
+                    $field = $customFieldsByName->get($fieldName);
+
+                    if (!$field) {
+                        $field = $list->customFields()->firstOrCreate(
+                            ['name' => trim($fieldName)],
+                            ['sort_order' => $list->customFields()->count()]
+                        );
+
+                        $customFieldsByName->put($field->name, $field);
+                    }
+
+                    $person->customFieldValues()->create([
+                        'list_custom_field_id' => $field->id,
+                        'value' => (string) $fieldValue,
+                    ]);
+                }
             }
 
             if (!empty($entry['timeline']) && is_array($entry['timeline'])) {

@@ -29,4 +29,9 @@ class UserList extends Model
     {
         return $this->hasMany(Person::class);
     }
+
+    public function customFields(): HasMany
+    {
+        return $this->hasMany(ListCustomField::class);
+    }
 }
