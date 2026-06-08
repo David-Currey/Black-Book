@@ -202,7 +202,7 @@ new class extends Component
                 href="{{ route('lists.index') }}"
                 class="text-sm text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition"
             >
-                ← Back to lists
+                &larr; Back to lists
             </a>
 
             <div class="page-header mt-3 !mb-0">
@@ -306,7 +306,7 @@ new class extends Component
                                     </div>
 
                                     <span class="text-sm text-[var(--app-text-muted)] shrink-0">
-                                        Open →
+                                        Open &rarr;
                                     </span>
                                 </div>
                             </a>

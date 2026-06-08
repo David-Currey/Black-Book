@@ -247,7 +247,7 @@ new class extends Component
                         type="button"
                         class="text-xs hover:opacity-80"
                     >
-                        ×
+                        &times;
                     </button>
                 </span>
             @endforeach

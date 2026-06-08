@@ -238,14 +238,14 @@ new class extends Component
             href="{{ route('lists.show', $this->person->list) }}"
             class="text-sm text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition"
         >
-            ← Back to {{ $this->person->list->name }}
+            &larr; Back to {{ $this->person->list->name }}
         </a>
 
         <div class="flex items-start justify-between gap-4 mt-3">
             <div class="page-header !mb-0">
                 <h1 class="page-title">{{ $this->person->name }}</h1>
                 <p class="page-subtitle">
-                    View this entry’s details.
+                    View this entry's details.
                 </p>
             </div>
 
