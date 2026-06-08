@@ -17,6 +17,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/lists/{list}/export', [ListTransferController::class, 'export'])
         ->name('lists.export');
 
+    Route::get('/lists/{list}/export/csv', [ListTransferController::class, 'exportCsv'])
+        ->name('lists.export.csv');
+
     Route::post('/lists/import', [ListTransferController::class, 'import'])
         ->name('lists.import');
 });

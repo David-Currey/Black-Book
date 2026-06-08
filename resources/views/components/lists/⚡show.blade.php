@@ -328,7 +328,7 @@ new class extends Component
                 wire:click="openExportModal"
                 class="btn-secondary"
             >
-                Export JSON
+                Export
             </button>
         </div>
     </div>
@@ -705,7 +705,7 @@ new class extends Component
                 {{-- EXPORT CONFIRM --}}
                 @if ($showExportModal)
                     <div class="modal-header">
-                        <h2 class="modal-title">Export JSON</h2>
+                        <h2 class="modal-title">Export</h2>
 
                         <button
                             wire:click="closeExportModal"
@@ -718,15 +718,22 @@ new class extends Component
                     <div class="modal-body">
                         <div class="space-y-4">
                             <p class="text-sm text-[var(--app-text-muted)]">
-                                Export <strong>{{ $this->list->name }}</strong> as a JSON file?
+                                Export <strong>{{ $this->list->name }}</strong> as JSON or CSV.
                             </p>
 
-                            <div class="flex gap-3">
+                            <div class="flex flex-wrap gap-3">
                                 <a
                                     href="{{ route('lists.export', $this->list) }}"
                                     class="btn-primary"
                                 >
-                                    Confirm Export
+                                    Export JSON
+                                </a>
+
+                                <a
+                                    href="{{ route('lists.export.csv', $this->list) }}"
+                                    class="btn-secondary"
+                                >
+                                    Export CSV
                                 </a>
 
                                 <button

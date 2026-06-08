@@ -74,16 +74,70 @@ class ListTransferController extends Controller
     }
 
     /**
+     * Export a list as a CSV file
+     */
+    public function exportCsv(UserList $list)
+    {
+        abort_unless($list->user_id === Auth::id(), 403);
+
+        $list->load(['customFields', 'people.tags', 'people.customFieldValues.field']);
+
+        $customFields = $list->customFields
+            ->sortBy('sort_order')
+            ->values();
+
+        $headers = collect(['name', 'category', 'status', 'rating', 'notes', 'tags'])
+            ->merge($customFields->map(fn ($field) => 'custom:' . $field->name))
+            ->all();
+
+        $fileName = Str::slug($list->name ?: 'list') . '.csv';
+
+        return response()->streamDownload(function () use ($headers, $list, $customFields) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $headers);
+
+            foreach ($list->people as $person) {
+                $customValues = $person->customFieldValues->pluck('value', 'list_custom_field_id');
+
+                $row = [
+                    $person->name,
+                    $person->game,
+                    $person->status,
+                    $person->rating,
+                    $person->notes,
+                    $person->tags->pluck('name')->implode('; '),
+                ];
+
+                foreach ($customFields as $field) {
+                    $row[] = $customValues->get($field->id);
+                }
+
+                fputcsv($handle, $row);
+            }
+
+            fclose($handle);
+        }, $fileName, [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    /**
      * Import a list from a JSON file
      */
     public function import(Request $request)
     {
         $request->validate([
-            'list_file' => ['required', 'file', 'mimes:json', 'max:2048'],
+            'list_file' => ['required', 'file', 'mimes:json,csv,txt', 'max:2048'],
         ], [
             'list_file.required' => 'Please choose a JSON file to import.',
-            'list_file.mimes' => 'The uploaded file must be a JSON file.',
+            'list_file.mimes' => 'The uploaded file must be a JSON or CSV file.',
         ]);
+
+        $extension = strtolower($request->file('list_file')->getClientOriginalExtension());
+
+        if (in_array($extension, ['csv', 'txt'], true)) {
+            return $this->importCsv($request);
+        }
 
         $contents = file_get_contents($request->file('list_file')->getRealPath());
         $data = json_decode($contents, true);
@@ -228,5 +282,107 @@ class ListTransferController extends Controller
         return redirect()
             ->route('lists.show', $list)
             ->with('success', 'List imported successfully.');
+    }
+
+    private function importCsv(Request $request)
+    {
+        $file = $request->file('list_file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if (! $handle) {
+            return back()->withErrors([
+                'list_file' => 'The uploaded CSV file could not be read.',
+            ]);
+        }
+
+        $headers = fgetcsv($handle);
+
+        if (! is_array($headers) || ! in_array('name', $headers, true)) {
+            fclose($handle);
+
+            return back()->withErrors([
+                'list_file' => 'The CSV file must include a name column.',
+            ]);
+        }
+
+        $baseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $list = Auth::user()->lists()->create([
+            'name' => Str::headline($baseName ?: 'Imported List'),
+            'description' => 'Imported from CSV.',
+        ]);
+
+        $customFieldColumns = collect($headers)
+            ->filter(fn ($header) => str_starts_with($header, 'custom:'))
+            ->mapWithKeys(function ($header, $index) use ($list) {
+                $name = trim(Str::after($header, 'custom:'));
+
+                if ($name === '') {
+                    return [];
+                }
+
+                $field = $list->customFields()->create([
+                    'name' => $name,
+                    'sort_order' => $list->customFields()->count(),
+                ]);
+
+                return [$index => $field];
+            });
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $normalizedRow = array_slice(array_pad($row, count($headers), null), 0, count($headers));
+            $entry = array_combine($headers, $normalizedRow);
+
+            if (! is_array($entry) || empty($entry['name'])) {
+                continue;
+            }
+
+            $status = $entry['status'] ?? 'neutral';
+            $status = array_key_exists($status, Person::STATUSES) ? $status : 'neutral';
+
+            $rating = $entry['rating'] ?? null;
+            $rating = is_numeric($rating) && $rating >= 1 && $rating <= 5 ? (int) $rating : null;
+
+            $person = $list->people()->create([
+                'name' => $entry['name'],
+                'game' => $entry['category'] ?? null,
+                'status' => $status,
+                'rating' => $rating,
+                'notes' => $entry['notes'] ?? null,
+            ]);
+
+            foreach ($customFieldColumns as $index => $field) {
+                $value = trim((string) ($row[$index] ?? ''));
+
+                if ($value === '') {
+                    continue;
+                }
+
+                $person->customFieldValues()->create([
+                    'list_custom_field_id' => $field->id,
+                    'value' => $value,
+                ]);
+            }
+
+            $tags = collect(explode(';', (string) ($entry['tags'] ?? '')))
+                ->map(fn ($tag) => trim($tag))
+                ->filter();
+
+            if ($tags->isNotEmpty()) {
+                $tagIds = $tags->map(function ($tagName) {
+                    return Auth::user()->tags()->firstOrCreate(
+                        ['name' => $tagName],
+                        ['color' => '#d6a84f']
+                    )->id;
+                });
+
+                $person->tags()->sync($tagIds);
+            }
+        }
+
+        fclose($handle);
+
+        return redirect()
+            ->route('lists.show', $list)
+            ->with('success', 'CSV imported successfully.');
     }
 }

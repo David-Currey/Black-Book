@@ -92,7 +92,7 @@ new class extends Component
                 wire:click="openImportListModal"
                 class="btn-secondary"
             >
-                Import JSON
+                Import File
             </button>
 
             <button
@@ -221,7 +221,7 @@ new class extends Component
         <div class="modal-wrap">
             <div class="modal-panel">
                 <div class="modal-header">
-                    <h2 class="modal-title">Import JSON</h2>
+                    <h2 class="modal-title">Import File</h2>
 
                     <button
                         wire:click="closeImportListModal"
@@ -241,12 +241,12 @@ new class extends Component
                         @csrf
 
                         <div>
-                            <label for="list_file" class="app-label">JSON File</label>
+                            <label for="list_file" class="app-label">JSON or CSV File</label>
                             <input
                                 id="list_file"
                                 name="list_file"
                                 type="file"
-                                accept=".json,application/json"
+                                accept=".json,.csv,application/json,text/csv"
                                 class="app-input"
                             >
 
@@ -256,7 +256,7 @@ new class extends Component
                         </div>
 
                         <p class="text-sm text-[var(--app-text-muted)]">
-                            Upload a JSON file exported from one of your lists.
+                            Upload JSON for a complete backup, or CSV for entry and custom field data.
                         </p>
 
                         <details class="mt-3 text-sm text-[var(--app-text-muted)]">
