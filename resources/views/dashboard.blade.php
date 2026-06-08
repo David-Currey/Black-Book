@@ -18,6 +18,9 @@
             </div>
 
             <div class="flex flex-wrap gap-3">
+                <a href="{{ route('search.index') }}" class="btn-secondary" wire:navigate>
+                    Search
+                </a>
                 <a href="{{ route('lists.index') }}" class="btn-primary" wire:navigate>
                     Open Lists
                 </a>

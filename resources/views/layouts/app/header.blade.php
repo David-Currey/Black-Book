@@ -13,6 +13,9 @@
                 <flux:navbar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:navbar.item>
+                <flux:navbar.item icon="magnifying-glass" :href="route('search.index')" :current="request()->routeIs('search.*')" wire:navigate>
+                    {{ __('Search') }}
+                </flux:navbar.item>
                 <flux:navbar.item icon="book-open-text" :href="route('lists.index')" :current="request()->routeIs('lists.*') || request()->routeIs('people.*')" wire:navigate>
                     {{ __('Lists') }}
                 </flux:navbar.item>
@@ -34,6 +37,9 @@
                 <flux:sidebar.group :heading="__('Platform')">
                     <flux:sidebar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard')  }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="magnifying-glass" :href="route('search.index')" :current="request()->routeIs('search.*')" wire:navigate>
+                        {{ __('Search') }}
                     </flux:sidebar.item>
                     <flux:sidebar.item icon="book-open-text" :href="route('lists.index')" :current="request()->routeIs('lists.*') || request()->routeIs('people.*')" wire:navigate>
                         {{ __('Lists') }}
