@@ -9,34 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Person extends Model
 {
-    public const STATUSES = [
-        'neutral' => 'Neutral',
-        'trusted' => 'Trusted',
-        'watch' => 'Watch',
-        'avoid' => 'Avoid',
-        'archived' => 'Archived',
-    ];
-
     protected $fillable = [
         'user_list_id',
         'name',
         'game',
-        'status',
-        'rating',
         'notes',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'rating' => 'integer',
-        ];
-    }
-
-    public function statusLabel(): string
-    {
-        return self::STATUSES[$this->status] ?? self::STATUSES['neutral'];
-    }
 
     /**
      * Get the list that this person belongs to
@@ -52,11 +30,6 @@ class Person extends Model
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);
-    }
-
-    public function timelineNotes(): HasMany
-    {
-        return $this->hasMany(EntryNote::class);
     }
 
     public function customFieldValues(): HasMany

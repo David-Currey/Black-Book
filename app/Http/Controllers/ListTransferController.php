@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Person;
 use App\Models\UserList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,7 +16,7 @@ class ListTransferController extends Controller
     {
         abort_unless($list->canBeViewedBy(Auth::user()), 403);
 
-        $list->load(['customFields', 'people.tags', 'people.timelineNotes', 'people.reminders', 'people.customFieldValues.field']);
+        $list->load(['customFields', 'people.tags', 'people.reminders', 'people.customFieldValues.field']);
 
         $data = [
             'name' => $list->name,
@@ -30,18 +29,7 @@ class ListTransferController extends Controller
                 return [
                     'name' => $person->name,
                     'category' => $person->game,
-                    'status' => $person->status,
-                    'rating' => $person->rating,
                     'notes' => $person->notes,
-                    'timeline' => $person->timelineNotes
-                        ->sortByDesc(fn ($note) => $note->occurred_on ?? $note->created_at)
-                        ->map(function ($note) {
-                            return [
-                                'occurred_on' => $note->occurred_on?->toDateString(),
-                                'note' => $note->note,
-                            ];
-                        })
-                        ->values(),
                     'reminders' => $person->reminders
                         ->whereNull('completed_at')
                         ->sortBy('remind_on')
@@ -86,7 +74,7 @@ class ListTransferController extends Controller
             ->sortBy('sort_order')
             ->values();
 
-        $headers = collect(['name', 'category', 'status', 'rating', 'notes', 'tags'])
+        $headers = collect(['name', 'category', 'notes', 'tags'])
             ->merge($customFields->map(fn ($field) => 'custom:' . $field->name))
             ->all();
 
@@ -102,8 +90,6 @@ class ListTransferController extends Controller
                 $row = [
                     $person->name,
                     $person->game,
-                    $person->status,
-                    $person->rating,
                     $person->notes,
                     $person->tags->pluck('name')->implode('; '),
                 ];
@@ -189,17 +175,9 @@ class ListTransferController extends Controller
                 continue;
             }
 
-            $status = $entry['status'] ?? 'neutral';
-            $status = array_key_exists($status, Person::STATUSES) ? $status : 'neutral';
-
-            $rating = $entry['rating'] ?? null;
-            $rating = is_numeric($rating) && $rating >= 1 && $rating <= 5 ? (int) $rating : null;
-
             $person = $list->people()->create([
                 'name' => $entry['name'],
                 'game' => $entry['category'] ?? null,
-                'status' => $status,
-                'rating' => $rating,
                 'notes' => $entry['notes'] ?? null,
             ]);
 
@@ -244,19 +222,6 @@ class ListTransferController extends Controller
                     $person->customFieldValues()->create([
                         'list_custom_field_id' => $field->id,
                         'value' => (string) $fieldValue,
-                    ]);
-                }
-            }
-
-            if (!empty($entry['timeline']) && is_array($entry['timeline'])) {
-                foreach ($entry['timeline'] as $timelineNote) {
-                    if (empty($timelineNote['note']) || !is_string($timelineNote['note'])) {
-                        continue;
-                    }
-
-                    $person->timelineNotes()->create([
-                        'occurred_on' => $timelineNote['occurred_on'] ?? null,
-                        'note' => $timelineNote['note'],
                     ]);
                 }
             }
@@ -336,17 +301,9 @@ class ListTransferController extends Controller
                 continue;
             }
 
-            $status = $entry['status'] ?? 'neutral';
-            $status = array_key_exists($status, Person::STATUSES) ? $status : 'neutral';
-
-            $rating = $entry['rating'] ?? null;
-            $rating = is_numeric($rating) && $rating >= 1 && $rating <= 5 ? (int) $rating : null;
-
             $person = $list->people()->create([
                 'name' => $entry['name'],
                 'game' => $entry['category'] ?? null,
-                'status' => $status,
-                'rating' => $rating,
                 'notes' => $entry['notes'] ?? null,
             ]);
 

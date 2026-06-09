@@ -7,10 +7,8 @@ It started as a simple list app, but now has enough structure to work as a small
 ## Features
 
 - Create, edit, and delete lists.
-- Add entries to each list with a name, category, notes, tags, status, and rating.
-- Search globally across lists, entries, tags, custom field values, timeline notes, and reminders.
-- Track entry status and 1-5 ratings.
-- Keep dated timeline notes on each entry.
+- Add entries to each list with a name, category, notes, tags, and custom fields.
+- Search globally across lists, entries, tags, custom field values, notes, and reminders.
 - Define custom fields per list and fill them in per entry.
 - Add reminders and mark follow-ups complete.
 - Import and export lists as JSON.
@@ -38,8 +36,6 @@ JSON exports include:
 - List name and description
 - Entries
 - Tags
-- Status and rating
-- Timeline notes
 - Open reminders
 - Custom field definitions and values
 
@@ -47,8 +43,6 @@ CSV exports include:
 
 - `name`
 - `category`
-- `status`
-- `rating`
 - `notes`
 - `tags`
 - Any custom fields as `custom:<Field Name>` columns
@@ -96,4 +90,4 @@ npm run build
 - `/search` - global search
 - `/lists` - owned and shared lists
 - `/lists/{list}` - list details, entries, custom fields, sharing, import/export
-- `/people/{person}` - entry details, reminders, timeline, tags, custom fields
+- `/people/{person}` - entry details, reminders, tags, custom fields

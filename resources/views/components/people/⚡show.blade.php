@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\EntryNote;
 use App\Models\EntryReminder;
 use App\Models\Person;
 use Illuminate\Support\Facades\Auth;
@@ -12,11 +11,7 @@ new class extends Component
 
     public string $name = '';
     public string $game = '';
-    public string $status = 'neutral';
-    public ?int $rating = null;
     public string $notes = '';
-    public string $timelineNote = '';
-    public string $timelineDate = '';
     public string $reminderDate = '';
     public string $reminderNote = '';
     public string $tagName = '';
@@ -38,11 +33,9 @@ new class extends Component
         $this->person = $person;
         $this->name = $person->name;
         $this->game = $person->game ?? '';
-        $this->status = $person->status ?? 'neutral';
-        $this->rating = $person->rating;
         $this->notes = $person->notes ?? '';
 
-        $this->person->load(['tags', 'timelineNotes', 'customFieldValues', 'reminders']);
+        $this->person->load(['tags', 'customFieldValues', 'reminders']);
         $this->customFieldValues = $this->person->customFieldValues
             ->pluck('value', 'list_custom_field_id')
             ->toArray();
@@ -66,8 +59,6 @@ new class extends Component
         $this->validate([
             'name' => 'required|string|max:255',
             'game' => 'nullable|string|max:255',
-            'status' => 'required|string|in:' . implode(',', array_keys(Person::STATUSES)),
-            'rating' => 'nullable|integer|min:1|max:5',
             'notes' => 'nullable|string|max:1000',
             'customFieldValues.*' => 'nullable|string|max:1000',
         ]);
@@ -75,8 +66,6 @@ new class extends Component
         $this->person->update([
             'name' => $this->name,
             'game' => $this->game,
-            'status' => $this->status,
-            'rating' => $this->rating,
             'notes' => $this->notes,
         ]);
 
@@ -117,46 +106,6 @@ new class extends Component
         $this->person->delete();
 
         return $this->redirect(route('lists.show', $list), navigate: true);
-    }
-
-    /**
-     * Add a dated note to this entry's timeline.
-     */
-    public function addTimelineNote(): void
-    {
-        abort_unless($this->canEdit, 403);
-
-        $this->validate([
-            'timelineDate' => 'nullable|date',
-            'timelineNote' => 'required|string|max:2000',
-        ], [
-            'timelineNote.required' => 'Timeline note text is required.',
-        ]);
-
-        $this->person->timelineNotes()->create([
-            'occurred_on' => $this->timelineDate ?: null,
-            'note' => $this->timelineNote,
-        ]);
-
-        $this->reset('timelineDate', 'timelineNote');
-        $this->person->load('timelineNotes');
-    }
-
-    /**
-     * Remove a note from this entry's timeline.
-     */
-    public function deleteTimelineNote(int $noteId): void
-    {
-        abort_unless($this->canEdit, 403);
-
-        $note = EntryNote::query()
-            ->whereKey($noteId)
-            ->where('person_id', $this->person->id)
-            ->firstOrFail();
-
-        $note->delete();
-
-        $this->person->load('timelineNotes');
     }
 
     /**
@@ -326,18 +275,6 @@ new class extends Component
     }
 
     /**
-     * Get this entry's timeline notes newest first.
-     */
-    public function getTimelineNotesProperty()
-    {
-        return $this->person
-            ->timelineNotes()
-            ->orderByRaw('COALESCE(occurred_on, created_at) DESC')
-            ->orderByDesc('created_at')
-            ->get();
-    }
-
-    /**
      * Get open reminders sorted by due date.
      */
     public function getOpenRemindersProperty()
@@ -463,22 +400,6 @@ new class extends Component
                     <p>{{ $this->person->game }}</p>
                 </div>
             @endif
-
-            <div class="grid gap-4 md:grid-cols-2">
-                <div>
-                    <p class="app-label">Status</p>
-                    <span class="card-meta">{{ $this->person->statusLabel() }}</span>
-                </div>
-
-                <div>
-                    <p class="app-label">Rating</p>
-                    @if ($this->person->rating)
-                        <span class="card-meta">{{ $this->person->rating }}/5</span>
-                    @else
-                        <p class="text-muted">Not rated.</p>
-                    @endif
-                </div>
-            </div>
 
             <div>
                 <p class="app-label">Tags</p>
@@ -632,89 +553,6 @@ new class extends Component
         </div>
     </div>
 
-    <div class="panel mt-6">
-        <div class="panel-inner space-y-6">
-            <div>
-                <h2 class="panel-title !mb-1">Timeline</h2>
-                <p class="text-sm text-[var(--app-text-muted)]">Keep dated history, follow-ups, and context for this entry.</p>
-            </div>
-
-            @if ($this->canEdit)
-                <div class="grid gap-4 md:grid-cols-[180px_1fr_auto]">
-                    <div>
-                        <label for="timeline-date" class="app-label">Date</label>
-                        <input
-                            id="timeline-date"
-                            type="date"
-                            wire:model.live="timelineDate"
-                            class="app-input"
-                        >
-
-                        @error('timelineDate')
-                            <p class="validation-error">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div>
-                        <label for="timeline-note" class="app-label">Note</label>
-                        <textarea
-                            id="timeline-note"
-                            wire:model.live="timelineNote"
-                            class="app-textarea"
-                            rows="3"
-                            placeholder="Add a dated note..."
-                        ></textarea>
-
-                        @error('timelineNote')
-                            <p class="validation-error">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div class="flex items-end">
-                        <button
-                            wire:click="addTimelineNote"
-                            wire:loading.attr="disabled"
-                            class="btn-primary w-full md:w-auto"
-                        >
-                            Add Note
-                        </button>
-                    </div>
-                </div>
-            @endif
-
-            @if ($this->timelineNotes->isEmpty())
-                <p class="text-muted">No timeline notes yet.</p>
-            @else
-                <ol class="space-y-3">
-                    @foreach ($this->timelineNotes as $note)
-                        <li class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4">
-                            <div class="flex items-start justify-between gap-4">
-                                <div class="min-w-0">
-                                    <p class="app-label">
-                                        {{ $note->occurred_on ? $note->occurred_on->format('M j, Y') : $note->created_at->format('M j, Y') }}
-                                    </p>
-                                    <div class="prose prose-invert max-w-none text-sm">
-                                        {!! $converter->convert($note->note) !!}
-                                    </div>
-                                </div>
-
-                                @if ($this->canEdit)
-                                    <button
-                                        type="button"
-                                        wire:click="deleteTimelineNote({{ $note->id }})"
-                                        class="icon-button shrink-0"
-                                    >
-                                        Remove
-                                    </button>
-                                @endif
-                            </div>
-                        </li>
-                    @endforeach
-                </ol>
-            @endif
-        </div>
-    </div>
-
     @if ($showEditModal)
         <div
             class="modal-backdrop"
@@ -762,43 +600,6 @@ new class extends Component
                             @error('game')
                                 <p class="validation-error">{{ $message }}</p>
                             @enderror
-                        </div>
-
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label for="person-status" class="app-label">Status</label>
-                                <select
-                                    id="person-status"
-                                    wire:model.live="status"
-                                    class="app-input"
-                                >
-                                    @foreach (Person::STATUSES as $value => $label)
-                                        <option value="{{ $value }}">{{ $label }}</option>
-                                    @endforeach
-                                </select>
-
-                                @error('status')
-                                    <p class="validation-error">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <label for="person-rating" class="app-label">Rating</label>
-                                <select
-                                    id="person-rating"
-                                    wire:model.live="rating"
-                                    class="app-input"
-                                >
-                                    <option value="">Not rated</option>
-                                    @for ($value = 1; $value <= 5; $value++)
-                                        <option value="{{ $value }}">{{ $value }}/5</option>
-                                    @endfor
-                                </select>
-
-                                @error('rating')
-                                    <p class="validation-error">{{ $message }}</p>
-                                @enderror
-                            </div>
                         </div>
 
                         <livewire:tags.selector wire:model="selectedTags" />

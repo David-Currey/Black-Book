@@ -20,8 +20,6 @@ new class extends Component
 
     public string $personName = '';
     public string $game = '';
-    public string $status = 'neutral';
-    public ?int $rating = null;
     public string $notes = '';
     public string $search = '';
 
@@ -33,6 +31,7 @@ new class extends Component
     public bool $showEditListModal = false;
     public bool $showAddPersonModal = false;
     public bool $showExportModal = false;
+    public bool $showCustomFieldModal = false;
 
     /**
      * Load the list and initialize form fields
@@ -56,8 +55,6 @@ new class extends Component
         $this->validate([
             'personName' => 'required|string|max:255',
             'game' => 'nullable|string|max:255',
-            'status' => 'required|string|in:' . implode(',', array_keys(Person::STATUSES)),
-            'rating' => 'nullable|integer|min:1|max:5',
             'notes' => 'nullable|string|max:1000',
             'customFieldValues.*' => 'nullable|string|max:1000',
         ], [
@@ -67,8 +64,6 @@ new class extends Component
         $person = $this->list->people()->create([
             'name' => $this->personName,
             'game' => $this->game,
-            'status' => $this->status,
-            'rating' => $this->rating,
             'notes' => $this->notes,
         ]);
 
@@ -92,8 +87,7 @@ new class extends Component
 
         $person->tags()->sync($tagIds);
 
-        $this->reset('personName', 'game', 'status', 'rating', 'notes', 'customFieldValues');
-        $this->status = 'neutral';
+        $this->reset('personName', 'game', 'notes', 'customFieldValues');
         $this->selectedTags = [];
 
         $this->list->refresh();
@@ -151,6 +145,8 @@ new class extends Component
     public function openEditListModal(): void
     {
         $this->showAddPersonModal = false;
+        $this->showCustomFieldModal = false;
+        $this->showExportModal = false;
         $this->showEditListModal = true;
     }
 
@@ -160,11 +156,26 @@ new class extends Component
     public function openAddPersonModal(): void
     {
         $this->showEditListModal = false;
+        $this->showCustomFieldModal = false;
+        $this->showExportModal = false;
         $this->showAddPersonModal = true;
 
-        $this->reset('personName', 'game', 'status', 'rating', 'notes', 'customFieldValues');
-        $this->status = 'neutral';
+        $this->reset('personName', 'game', 'notes', 'customFieldValues');
         $this->selectedTags = [];
+    }
+
+    /**
+     * Open the custom field modal.
+     */
+    public function openCustomFieldModal(): void
+    {
+        abort_unless($this->canEdit, 403);
+
+        $this->showEditListModal = false;
+        $this->showAddPersonModal = false;
+        $this->showExportModal = false;
+        $this->showCustomFieldModal = true;
+        $this->reset('customFieldName');
     }
 
     /**
@@ -174,6 +185,8 @@ new class extends Component
     {
         $this->showEditListModal = false;
         $this->showAddPersonModal = false;
+        $this->showExportModal = false;
+        $this->showCustomFieldModal = false;
         $this->confirmingDelete = false;
     }
 
@@ -192,7 +205,6 @@ new class extends Component
                     $subQuery
                         ->where('name', 'like', '%' . $search . '%')
                         ->orWhere('game', 'like', '%' . $search . '%')
-                        ->orWhere('status', 'like', '%' . $search . '%')
                         ->orWhereHas('tags', function ($tagQuery) use ($search) {
                             $tagQuery->where('name', 'like', '%' . $search . '%');
                         });
@@ -246,6 +258,7 @@ new class extends Component
 
         $this->reset('customFieldName');
         $this->list->refresh();
+        $this->closeModals();
     }
 
     /**
@@ -314,6 +327,9 @@ new class extends Component
      */
     public function openExportModal(): void
     {
+        $this->showEditListModal = false;
+        $this->showAddPersonModal = false;
+        $this->showCustomFieldModal = false;
         $this->showExportModal = true;
     }
 
@@ -401,6 +417,13 @@ new class extends Component
                     class="btn-secondary"
                 >
                     Edit List
+                </button>
+
+                <button
+                    wire:click="openCustomFieldModal"
+                    class="btn-secondary"
+                >
+                    Add Custom Field
                 </button>
             @endif
 
@@ -490,39 +513,11 @@ new class extends Component
         <div class="panel-inner">
             <div class="mb-4">
                 <h2 class="panel-title !mb-1">Custom Fields</h2>
-                <p class="text-sm text-[var(--app-text-muted)]">Add list-specific fields that every entry in this list can use.</p>
+                <p class="text-sm text-[var(--app-text-muted)]">List-specific fields that every entry in this list can use.</p>
             </div>
 
-            @if ($this->canEdit)
-                <div class="grid gap-3 md:grid-cols-[1fr_auto]">
-                    <div>
-                        <label for="custom-field-name" class="sr-only">Custom field name</label>
-                        <input
-                            id="custom-field-name"
-                            type="text"
-                            wire:model.live="customFieldName"
-                            wire:keydown.enter="addCustomField"
-                            class="app-input"
-                            placeholder="Ex. Server, Discord, Company..."
-                        >
-
-                        @error('customFieldName')
-                            <p class="validation-error">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <button
-                        wire:click="addCustomField"
-                        wire:loading.attr="disabled"
-                        class="btn-secondary"
-                    >
-                        Add Field
-                    </button>
-                </div>
-            @endif
-
             @if ($this->customFields->isNotEmpty())
-                <div class="mt-4 flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2">
                     @foreach ($this->customFields as $field)
                         <span class="card-meta gap-2">
                             {{ $field->name }}
@@ -536,6 +531,8 @@ new class extends Component
                         </span>
                     @endforeach
                 </div>
+            @else
+                <p class="text-muted">No custom fields yet.</p>
             @endif
         </div>
     </div>
@@ -587,14 +584,6 @@ new class extends Component
                                             <p class="card-text">{{ $person->game }}</p>
                                         @endif
 
-                                        <div class="flex flex-wrap gap-2 mt-3">
-                                            <span class="card-meta">{{ $person->statusLabel() }}</span>
-
-                                            @if ($person->rating)
-                                                <span class="card-meta">{{ $person->rating }}/5</span>
-                                            @endif
-                                        </div>
-
                                         @if ($person->tags->isNotEmpty())
                                             <div class="flex flex-wrap gap-2 mt-3">
                                                 @foreach ($person->tags as $tag)
@@ -626,12 +615,10 @@ new class extends Component
     </div>
 
     <!-- Modals -->
-    @if ($showEditListModal || $showAddPersonModal || $showExportModal)
+    @if ($showEditListModal || $showAddPersonModal || $showExportModal || $showCustomFieldModal)
         <div
             class="modal-backdrop"
-            wire:click="
-                {{ $showExportModal ? 'closeExportModal' : 'closeModals' }}
-            "
+            wire:click="closeModals"
         ></div>
 
         <div class="modal-wrap">
@@ -764,43 +751,6 @@ new class extends Component
                                 @enderror
                             </div>
 
-                            <div class="grid gap-4 md:grid-cols-2">
-                                <div>
-                                    <label for="person-status" class="app-label">Status</label>
-                                    <select
-                                        id="person-status"
-                                        wire:model.live="status"
-                                        class="app-input"
-                                    >
-                                        @foreach (Person::STATUSES as $value => $label)
-                                            <option value="{{ $value }}">{{ $label }}</option>
-                                        @endforeach
-                                    </select>
-
-                                    @error('status')
-                                        <p class="validation-error">{{ $message }}</p>
-                                    @enderror
-                                </div>
-
-                                <div>
-                                    <label for="person-rating" class="app-label">Rating</label>
-                                    <select
-                                        id="person-rating"
-                                        wire:model.live="rating"
-                                        class="app-input"
-                                    >
-                                        <option value="">Not rated</option>
-                                        @for ($value = 1; $value <= 5; $value++)
-                                            <option value="{{ $value }}">{{ $value }}/5</option>
-                                        @endfor
-                                    </select>
-
-                                    @error('rating')
-                                        <p class="validation-error">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                            </div>
-
                             <livewire:tags.selector wire:model="selectedTags" />
 
                             @if ($this->customFields->isNotEmpty())
@@ -855,6 +805,57 @@ new class extends Component
                             >
                                 Add Entry
                             </button>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- ADD CUSTOM FIELD --}}
+                @if ($showCustomFieldModal)
+                    <div class="modal-header">
+                        <h2 class="modal-title">Add Custom Field</h2>
+
+                        <button
+                            wire:click="closeModals"
+                            class="icon-button"
+                        >
+                            Close
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="custom-field-name" class="app-label">Field Name</label>
+                                <input
+                                    id="custom-field-name"
+                                    type="text"
+                                    wire:model.live="customFieldName"
+                                    wire:keydown.enter="addCustomField"
+                                    class="app-input"
+                                    placeholder="Ex. Server, Discord, Company..."
+                                >
+
+                                @error('customFieldName')
+                                    <p class="validation-error">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="flex flex-wrap gap-3 pt-2">
+                                <button
+                                    wire:click="addCustomField"
+                                    wire:loading.attr="disabled"
+                                    class="btn-primary"
+                                >
+                                    Add Custom Field
+                                </button>
+
+                                <button
+                                    wire:click="closeModals"
+                                    class="btn-secondary"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     </div>
                 @endif
